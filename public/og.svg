@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ecfeff"/>
+      <stop offset=".55" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#fff7ed"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="80" y="90" width="1040" height="450" rx="28" fill="#ffffff" stroke="#cbd5e1"/>
+  <rect x="130" y="150" width="92" height="92" rx="18" fill="#0891b2"/>
+  <path d="M158 172h28l16 16v36h-44z" fill="#fff"/>
+  <path d="M186 172v17h16" fill="#bae6fd"/>
+  <text x="130" y="330" font-family="Inter, Arial, sans-serif" font-size="74" font-weight="800" fill="#0f172a">Open PDF Tools</text>
+  <text x="132" y="395" font-family="Inter, Arial, sans-serif" font-size="32" fill="#475569">Free, open-source PDF toolkit for modern SaaS workflows.</text>
+  <g fill="#0891b2" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">
+    <text x="132" y="475">Merge</text>
+    <text x="250" y="475">Split</text>
+    <text x="360" y="475">Compress</text>
+    <text x="530" y="475">Convert</text>
+    <text x="670" y="475">Watermark</text>
+  </g>
+</svg>
