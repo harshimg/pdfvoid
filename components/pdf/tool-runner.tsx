@@ -76,6 +76,12 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
     });
 
     try {
+      if (tool.slug === "merge") {
+        await mergePdfsInBrowser(files, setProgress);
+        toast.success("Merged PDF is ready.");
+        return;
+      }
+
       const formData = new FormData();
       files.forEach((item) => formData.append("files", item.file));
       formData.append("options", JSON.stringify(options));
@@ -271,4 +277,36 @@ function Field({
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </label>
   );
+}
+
+async function mergePdfsInBrowser(
+  files: QueuedFile[],
+  setProgress: (progress: number) => void
+) {
+  const { PDFDocument } = await import("pdf-lib");
+  const output = await PDFDocument.create();
+
+  for (const [index, item] of files.entries()) {
+    if (item.file.type !== "application/pdf") {
+      throw new Error(`${item.file.name} is not a PDF file.`);
+    }
+
+    const bytes = new Uint8Array(await item.file.arrayBuffer());
+    const header = new TextDecoder().decode(bytes.slice(0, 8));
+    if (!header.startsWith("%PDF-")) {
+      throw new Error(`${item.file.name} does not look like a valid PDF.`);
+    }
+
+    const input = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const pages = await output.copyPages(input, input.getPageIndices());
+    pages.forEach((page) => output.addPage(page));
+    setProgress(20 + Math.round(((index + 1) / files.length) * 65));
+  }
+
+  const mergedBytes = await output.save({ useObjectStreams: true });
+  downloadBlob(
+    new Blob([mergedBytes as BlobPart], { type: "application/pdf" }),
+    "merged.pdf"
+  );
+  setProgress(100);
 }
