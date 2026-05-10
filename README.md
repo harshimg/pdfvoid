@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Open PDF Tools
 
 A modern SaaS-style PDF toolkit built with Next.js 15, TypeScript, Tailwind CSS, shadcn-style components, Framer Motion, Zustand, and open-source PDF libraries.
@@ -103,3 +104,7 @@ The API routes use the Node.js runtime because PDF rendering and image conversio
 3. Add the processing case in `lib/pdf/operations.ts`.
 4. Keep route validation in `lib/security/upload-guards.ts`.
 5. Run `pnpm typecheck` and `pnpm build`.
+=======
+# pdfvoid
+All-in-one PDF and file tools platform.
+>>>>>>> 642a5e96e5a6b3121a003b8923716f63f8200219
