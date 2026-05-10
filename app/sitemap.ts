@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
+import { siteConfig } from "@/lib/site";
 import { tools } from "@/lib/tools";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const baseUrl = siteConfig.url;
   const now = new Date();
 
   return [

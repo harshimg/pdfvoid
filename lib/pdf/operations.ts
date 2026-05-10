@@ -48,7 +48,7 @@ export async function processPdfTool(
     case "unlock":
       return pdfResult(await unlockBestEffort(files[0].bytes), "unlocked.pdf");
     case "lock":
-      throw new Error("Password locking needs a qpdf-compatible adapter. The route is prepared but disabled for Vercel-free portability.");
+      throw new Error("Password locking is coming soon.");
     default:
       throw new Error("Unsupported PDF operation.");
   }

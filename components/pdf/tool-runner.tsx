@@ -52,10 +52,11 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const canProcess = useMemo(() => {
+    if (tool.slug === "lock") return false;
     if (tool.output === "preview") return files.length > 0;
     if (tool.multiple) return files.length >= 1;
     return files.length === 1;
-  }, [files.length, tool.multiple, tool.output]);
+  }, [files.length, tool.multiple, tool.output, tool.slug]);
 
   async function processFiles() {
     if (!canProcess) {
@@ -100,7 +101,7 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
 
       const blob = await response.blob();
       const disposition = response.headers.get("content-disposition") ?? "";
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `open-pdf-tools-${tool.slug}.${tool.output}`;
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `pdfvoid-${tool.slug}.${tool.output}`;
       downloadBlob(blob, filename);
       setProgress(100);
       toast.success("Your file is ready.");
@@ -170,7 +171,7 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
             </div>
             <Button className="w-full gap-2" disabled={!canProcess || isProcessing || isPending} onClick={processFiles}>
               {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : tool.output === "preview" ? <Wand2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {tool.output === "preview" ? "Load preview" : "Process and download"}
+              {tool.slug === "lock" ? "Coming soon" : tool.output === "preview" ? "Load preview" : "Process and download"}
             </Button>
           </CardContent>
         </Card>

@@ -6,7 +6,7 @@ export function Footer() {
     <footer className="border-t bg-background/70">
       <div className="container grid gap-8 py-10 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
-          <p className="font-semibold">Open PDF Tools</p>
+          <p className="font-semibold">PDFVoid</p>
           <p className="mt-2 max-w-md text-sm text-muted-foreground">
             A free-first PDF toolkit built with open-source libraries and a clean
             Next.js architecture ready for future accounts, limits, ads, and APIs.

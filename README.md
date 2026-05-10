@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-# Open PDF Tools
+# PDFVoid
 
 A modern SaaS-style PDF toolkit built with Next.js 15, TypeScript, Tailwind CSS, shadcn-style components, Framer Motion, Zustand, and open-source PDF libraries.
 
@@ -8,7 +7,8 @@ A modern SaaS-style PDF toolkit built with Next.js 15, TypeScript, Tailwind CSS,
 - Landing page with hero, features, pricing placeholder, FAQ, navbar, footer, dark mode, OpenGraph, sitemap, robots, and favicon.
 - Tool dashboard with search, categories, command palette, cards, empty states, skeleton loading, and mobile responsive layouts.
 - Reusable upload workspace with drag-and-drop, reorderable queue, progress, toast notifications, local PDF preview, and error handling.
-- Next.js API route for PDF operations using open-source libraries only.
+- Client-side merge support for large multi-PDF jobs, avoiding Vercel upload limits.
+- Next.js API routes for supported server-side PDF operations using open-source libraries only.
 - Placeholders for AdSense, analytics, auth, database, usage limits, premium plans, and future API access.
 
 ## Tools
@@ -29,21 +29,6 @@ A modern SaaS-style PDF toolkit built with Next.js 15, TypeScript, Tailwind CSS,
 - Preview PDF
 
 Password locking is intentionally adapter-ready instead of pretending `pdf-lib` can encrypt PDFs. For production-grade lock/unlock, add a free qpdf-compatible WASM or binary adapter that works in your chosen hosting environment.
-
-## Tech stack
-
-- Next.js 15 App Router
-- TypeScript
-- Tailwind CSS
-- shadcn-style local UI primitives
-- Framer Motion
-- Zustand
-- pdf-lib
-- pdfjs-dist
-- @napi-rs/canvas
-- fflate
-- react-dropzone
-- dnd-kit
 
 ## Local setup
 
@@ -67,10 +52,10 @@ pnpm start
 
 ## Environment
 
-Copy `.env.example` to `.env.local` when you are ready to configure deployment values.
+Set this in Vercel before going live:
 
 ```bash
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://pdfvoid.com
 NEXT_PUBLIC_ANALYTICS_ENABLED=false
 NEXT_PUBLIC_ADS_ENABLED=false
 DATABASE_URL=
@@ -84,27 +69,17 @@ RATE_LIMIT_REDIS_URL=
 1. Push the repository to GitHub.
 2. Import it in Vercel.
 3. Set the package manager to pnpm.
-4. Add `NEXT_PUBLIC_APP_URL` with your production URL.
-5. Deploy.
+4. Add `NEXT_PUBLIC_APP_URL=https://pdfvoid.com`.
+5. Add the `pdfvoid.com` domain in Vercel and follow Vercel's DNS instructions.
+6. Deploy.
 
-The API routes use the Node.js runtime because PDF rendering and image conversion need Node-compatible libraries. Keep file limits conservative on the free tier.
+The API routes use the Node.js runtime because PDF rendering and image conversion need Node-compatible libraries. Keep server-side file limits conservative on the free tier.
 
 ## Architecture notes
 
+- `lib/site.ts` owns public domain and brand metadata.
 - `lib/tools.ts` is the single registry for tool metadata, routing, categories, and icons.
 - `components/pdf` owns the reusable upload and processing UI.
 - `lib/pdf` owns parsing, rendering, operation logic, and binary responses.
 - `lib/security` owns file validation and a simple in-memory rate-limit structure that can be replaced with Redis later.
 - `components/ads` contains disabled reusable ad slots for future AdSense integration.
-
-## Beginner extension path
-
-1. Add a new tool to `lib/tools.ts`.
-2. Add any custom fields in `components/pdf/tool-runner.tsx`.
-3. Add the processing case in `lib/pdf/operations.ts`.
-4. Keep route validation in `lib/security/upload-guards.ts`.
-5. Run `pnpm typecheck` and `pnpm build`.
-=======
-# pdfvoid
-All-in-one PDF and file tools platform.
->>>>>>> 642a5e96e5a6b3121a003b8923716f63f8200219

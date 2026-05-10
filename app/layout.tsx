@@ -6,21 +6,20 @@ import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { siteConfig } from "@/lib/site";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(appUrl),
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Open PDF Tools - Free PDF Toolkit",
-    template: "%s | Open PDF Tools"
+    default: "PDFVoid - Free PDF Toolkit",
+    template: `%s | ${siteConfig.name}`
   },
-  description:
-    "Merge, split, compress, convert, watermark, rotate, reorder, and edit PDFs with a privacy-friendly toolkit built on open-source libraries.",
+  description: siteConfig.description,
   keywords: [
     "free pdf tools",
+    "pdfvoid",
     "merge pdf",
     "split pdf",
     "compress pdf",
@@ -28,21 +27,23 @@ export const metadata: Metadata = {
     "images to pdf",
     "open source pdf"
   ],
-  authors: [{ name: "Open PDF Tools" }],
-  creator: "Open PDF Tools",
+  authors: [{ name: siteConfig.name }],
+  creator: siteConfig.name,
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
     type: "website",
-    url: appUrl,
-    siteName: "Open PDF Tools",
-    title: "Open PDF Tools - Free PDF Toolkit",
-    description:
-      "A modern free PDF toolkit with open-source processing and Vercel-ready architecture.",
-    images: [{ url: "/og.svg", width: 1200, height: 630, alt: "Open PDF Tools" }]
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: "PDFVoid - Free PDF Toolkit",
+    description: siteConfig.description,
+    images: [{ url: "/og.svg", width: 1200, height: 630, alt: siteConfig.name }]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Open PDF Tools",
-    description: "Free PDF toolkit for everyday document work.",
+    title: siteConfig.name,
+    description: siteConfig.description,
     images: ["/og.svg"]
   },
   icons: {

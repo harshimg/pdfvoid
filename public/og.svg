@@ -11,7 +11,7 @@
   <rect x="130" y="150" width="92" height="92" rx="18" fill="#0891b2"/>
   <path d="M158 172h28l16 16v36h-44z" fill="#fff"/>
   <path d="M186 172v17h16" fill="#bae6fd"/>
-  <text x="130" y="330" font-family="Inter, Arial, sans-serif" font-size="74" font-weight="800" fill="#0f172a">Open PDF Tools</text>
+  <text x="130" y="330" font-family="Inter, Arial, sans-serif" font-size="74" font-weight="800" fill="#0f172a">PDFVoid</text>
   <text x="132" y="395" font-family="Inter, Arial, sans-serif" font-size="32" fill="#475569">Free, open-source PDF toolkit for modern SaaS workflows.</text>
   <g fill="#0891b2" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="700">
     <text x="132" y="475">Merge</text>

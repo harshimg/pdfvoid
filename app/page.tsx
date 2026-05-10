@@ -40,7 +40,7 @@ export default function HomePage() {
           <div>
             <Badge variant="secondary">Free-first SaaS PDF toolkit</Badge>
             <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold tracking-normal sm:text-5xl lg:text-6xl">
-              Open PDF Tools
+              PDFVoid
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
               Merge, split, compress, convert, rotate, watermark, and organize PDFs

@@ -21,7 +21,7 @@ export async function generateMetadata({
     title: tool.name,
     description: tool.description,
     openGraph: {
-      title: `${tool.name} - Open PDF Tools`,
+      title: `${tool.name} - PDFVoid`,
       description: tool.description
     }
   };
