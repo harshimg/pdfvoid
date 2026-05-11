@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Badge } from "@/components/ui/badge";
-import { ToolRunner } from "@/components/pdf/tool-runner";
+import { ToolPageShell } from "@/components/pdf/tool-page-shell";
+import { getPrimarySeoPage } from "@/lib/seo-pages";
+import { siteConfig } from "@/lib/site";
 import { getTool, tools } from "@/lib/tools";
 
 export function generateStaticParams() {
@@ -16,13 +17,18 @@ export async function generateMetadata({
   const { slug } = await params;
   const tool = getTool(slug);
   if (!tool) return {};
+  const seoPage = getPrimarySeoPage(tool.slug);
 
   return {
     title: tool.name,
     description: tool.description,
+    alternates: {
+      canonical: seoPage ? `/${seoPage.slug}` : `/tools/${tool.slug}`
+    },
     openGraph: {
       title: `${tool.name} - PDFVoid`,
-      description: tool.description
+      description: tool.description,
+      url: `${siteConfig.url}${seoPage ? `/${seoPage.slug}` : `/tools/${tool.slug}`}`
     }
   };
 }
@@ -32,33 +38,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
   const tool = getTool(slug);
 
   if (!tool) notFound();
+  const seoPage = getPrimarySeoPage(tool.slug);
 
-  return (
-    <div className="container py-10">
-      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-        <div className="max-w-3xl">
-          <Badge variant={tool.status === "adapter" ? "muted" : "secondary"}>
-            {tool.category}
-          </Badge>
-          <h1 className="mt-3 text-3xl font-semibold">{tool.name}</h1>
-          <p className="mt-3 text-muted-foreground">{tool.description}</p>
-        </div>
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border bg-card text-primary">
-          <tool.icon className="h-7 w-7" />
-        </div>
-      </div>
-      <ToolRunner
-        tool={{
-          slug: tool.slug,
-          name: tool.name,
-          description: tool.description,
-          category: tool.category,
-          accepts: tool.accepts,
-          multiple: tool.multiple,
-          output: tool.output,
-          status: tool.status
-        }}
-      />
-    </div>
-  );
+  return <ToolPageShell tool={tool} seoPage={seoPage} pathname={`/tools/${tool.slug}`} />;
 }

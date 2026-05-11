@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getToolHref } from "@/lib/seo-pages";
 import { tools } from "@/lib/tools";
 
 export function Footer() {
@@ -16,7 +17,7 @@ export function Footer() {
           <p className="text-sm font-medium">Popular tools</p>
           <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
             {tools.slice(0, 5).map((tool) => (
-              <Link key={tool.slug} href={`/tools/${tool.slug}`} className="hover:text-foreground">
+              <Link key={tool.slug} href={getToolHref(tool.slug)} className="hover:text-foreground">
                 {tool.name}
               </Link>
             ))}

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Search } from "lucide-react";
+import { getToolHref } from "@/lib/seo-pages";
 import { tools } from "@/lib/tools";
 import { useCommandStore } from "@/lib/state";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,7 @@ export function CommandPalette() {
               value={`${tool.name} ${tool.description}`}
               className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-3 text-sm aria-selected:bg-muted"
               onSelect={() => {
-                router.push(`/tools/${tool.slug}`);
+                router.push(getToolHref(tool.slug));
                 close();
               }}
             >

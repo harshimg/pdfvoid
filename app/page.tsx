@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToolCard } from "@/components/tool-card";
 import { AdSlot } from "@/components/ads/ad-slot";
+import { JsonLd } from "@/components/json-ld";
+import { getToolHref } from "@/lib/seo-pages";
+import { siteConfig } from "@/lib/site";
 import { tools } from "@/lib/tools";
 
 const highlights = [
@@ -34,6 +37,16 @@ export default function HomePage() {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: siteConfig.name,
+          alternateName: ["PDF Void", "PDFVoid PDF Tools"],
+          url: siteConfig.url,
+          description: siteConfig.description
+        }}
+      />
       <AdSlot placement="top-banner" />
       <section className="surface-grid overflow-hidden border-b">
         <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr]">
@@ -71,7 +84,7 @@ export default function HomePage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 {featuredTools.map((tool) => (
                   <Link
-                    href={`/tools/${tool.slug}`}
+                    href={getToolHref(tool.slug)}
                     key={tool.slug}
                     className="rounded-lg border bg-background/70 p-4 transition hover:-translate-y-1 hover:shadow-md"
                   >

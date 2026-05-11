@@ -1,8 +1,13 @@
 "use client";
 
 import type React from "react";
+import dynamic from "next/dynamic";
 import { ThemeProvider } from "next-themes";
-import { CommandPalette } from "@/components/command-palette";
+
+const CommandPalette = dynamic(
+  () => import("@/components/command-palette").then((mod) => mod.CommandPalette),
+  { ssr: false }
+);
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
