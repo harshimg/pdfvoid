@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import type React from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { GoogleAnalytics } from '@next/third-parties/google'
+import { Analytics } from "@vercel/analytics/next"
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { Providers } from "@/components/providers";
@@ -68,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <Analytics/>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Navbar />
@@ -77,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Toaster />
         </Providers>
       </body>
+      <GoogleAnalytics gaId="G-JT2L7KFYLE" />
     </html>
   );
 }
