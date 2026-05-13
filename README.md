@@ -83,3 +83,4 @@ The API routes use the Node.js runtime because PDF rendering and image conversio
 - `lib/pdf` owns parsing, rendering, operation logic, and binary responses.
 - `lib/security` owns file validation and a simple in-memory rate-limit structure that can be replaced with Redis later.
 - `components/ads` contains disabled reusable ad slots for future AdSense integration.
+ 
