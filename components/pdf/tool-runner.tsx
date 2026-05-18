@@ -194,7 +194,16 @@ function ToolOptionsForm({
   const update = (key: keyof ToolOptions, value: string) =>
     setOptions({ ...options, [key]: value });
 
-  if (tool.slug === "preview" || tool.slug === "merge" || tool.slug === "compress") {
+  if (tool.slug === "compress") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Compression rebuilds pages as optimized JPEG-backed PDF pages when that makes
+        the file smaller. Best for scanned PDFs and photo-heavy PDFs.
+      </p>
+    );
+  }
+
+  if (tool.slug === "preview" || tool.slug === "merge") {
     return <p className="text-sm text-muted-foreground">No extra options needed.</p>;
   }
 

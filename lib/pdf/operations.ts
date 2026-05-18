@@ -4,7 +4,7 @@ import type { ToolSlug } from "@/lib/tools";
 import type { UploadedInput } from "@/lib/security/upload-guards";
 import type { PdfToolOptions } from "@/lib/pdf/options";
 import { parsePageOrder, parsePageSelection, parseRanges } from "@/lib/pdf/options";
-import { renderPdfToImageZip } from "@/lib/pdf/render";
+import { compressPdfByRasterizing, renderPdfToImageZip } from "@/lib/pdf/render";
 
 export type PdfResult = {
   bytes: Uint8Array;
@@ -81,7 +81,18 @@ async function splitPdf(bytes: Uint8Array, options: PdfToolOptions) {
 
 async function compressPdf(bytes: Uint8Array) {
   const input = await PDFDocument.load(bytes);
-  return input.save({ useObjectStreams: true, objectsPerTick: 50 });
+  const losslessBytes = await input.save({ useObjectStreams: true, objectsPerTick: 50 });
+  const rasterBytes = await compressPdfByRasterizing(bytes);
+
+  if (rasterBytes.length < bytes.length || rasterBytes.length < losslessBytes.length) {
+    return rasterBytes;
+  }
+
+  if (losslessBytes.length < bytes.length) return losslessBytes;
+
+  throw new Error(
+    "This PDF is already optimized or cannot be reduced safely with browser-compatible compression."
+  );
 }
 
 async function imagesToPdf(files: UploadedInput[]) {
