@@ -3,7 +3,18 @@
 import type React from "react";
 import { useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Download, Info, Loader2 } from "lucide-react";
+import {
+  Bold,
+  Check,
+  Download,
+  Image as ImageIcon,
+  Info,
+  Italic,
+  Layers,
+  Loader2,
+  Type,
+  Underline
+} from "lucide-react";
 import { toast } from "sonner";
 import { recordToolIntent } from "@/app/actions";
 import { AdSlot } from "@/components/ads/ad-slot";
@@ -14,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ToolClientConfig } from "@/lib/tools";
-import { downloadBlob } from "@/lib/utils";
+import { cn, downloadBlob, formatBytes } from "@/lib/utils";
 
 type ToolOptions = {
   ranges: string;
@@ -22,6 +33,34 @@ type ToolOptions = {
   order: string;
   rotation: string;
   watermark: string;
+  watermarkMode: "text" | "image";
+  watermarkText: string;
+  watermarkFont: "helvetica" | "times" | "courier";
+  watermarkColor: string;
+  watermarkBold: boolean;
+  watermarkItalic: boolean;
+  watermarkUnderline: boolean;
+  watermarkSize: string;
+  watermarkPosition:
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "middle-left"
+    | "middle-center"
+    | "middle-right"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right"
+    | "custom";
+  watermarkMosaic: boolean;
+  watermarkX: string;
+  watermarkY: string;
+  watermarkOpacity: string;
+  watermarkRotation: string;
+  watermarkFromPage: string;
+  watermarkToPage: string;
+  watermarkLayer: "over" | "under";
+  watermarkImageScale: string;
   title: string;
   author: string;
   subject: string;
@@ -36,6 +75,24 @@ const defaultOptions: ToolOptions = {
   order: "",
   rotation: "90",
   watermark: "Confidential",
+  watermarkMode: "text",
+  watermarkText: "Confidential",
+  watermarkFont: "helvetica",
+  watermarkColor: "#0891b2",
+  watermarkBold: true,
+  watermarkItalic: false,
+  watermarkUnderline: false,
+  watermarkSize: "64",
+  watermarkPosition: "middle-center",
+  watermarkMosaic: false,
+  watermarkX: "50",
+  watermarkY: "50",
+  watermarkOpacity: "0.22",
+  watermarkRotation: "-32",
+  watermarkFromPage: "1",
+  watermarkToPage: "",
+  watermarkLayer: "over",
+  watermarkImageScale: "28",
   title: "",
   author: "",
   subject: "",
@@ -100,16 +157,18 @@ type GhostscriptWindow = Window & {
 export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [options, setOptions] = useState(defaultOptions);
+  const [watermarkImageFile, setWatermarkImageFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const canProcess = useMemo(() => {
     if (tool.slug === "lock") return false;
+    if (tool.slug === "watermark" && options.watermarkMode === "image" && !watermarkImageFile) return false;
     if (tool.output === "preview") return files.length > 0;
     if (tool.multiple) return files.length >= 1;
     return files.length === 1;
-  }, [files.length, tool.multiple, tool.output, tool.slug]);
+  }, [files.length, options.watermarkMode, tool.multiple, tool.output, tool.slug, watermarkImageFile]);
 
   async function processFiles() {
     if (!canProcess) {
@@ -150,6 +209,9 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
 
       const formData = new FormData();
       files.forEach((item) => formData.append("files", item.file));
+      if (tool.slug === "watermark" && watermarkImageFile) {
+        formData.append("watermarkImage", watermarkImageFile);
+      }
       formData.append("options", JSON.stringify(options));
       setProgress(45);
 
@@ -204,7 +266,13 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
                 <CardDescription>Only the fields relevant to this tool are sent to the API.</CardDescription>
               </CardHeader>
               <CardContent>
-                <ToolOptionsForm tool={tool} options={options} setOptions={setOptions} />
+                <ToolOptionsForm
+                  tool={tool}
+                  options={options}
+                  setOptions={setOptions}
+                  watermarkImageFile={watermarkImageFile}
+                  setWatermarkImageFile={setWatermarkImageFile}
+                />
               </CardContent>
             </Card>
             <AdSlot placement="in-content" />
@@ -264,13 +332,17 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
 function ToolOptionsForm({
   tool,
   options,
-  setOptions
+  setOptions,
+  watermarkImageFile,
+  setWatermarkImageFile
 }: {
   tool: ToolClientConfig;
   options: ToolOptions;
   setOptions: (options: ToolOptions) => void;
+  watermarkImageFile: File | null;
+  setWatermarkImageFile: (file: File | null) => void;
 }) {
-  const update = (key: keyof ToolOptions, value: string) =>
+  const update = <Key extends keyof ToolOptions>(key: Key, value: ToolOptions[Key]) =>
     setOptions({ ...options, [key]: value });
 
   if (tool.slug === "compress") {
@@ -310,9 +382,12 @@ function ToolOptionsForm({
         </Field>
       ) : null}
       {tool.slug === "watermark" ? (
-        <Field label="Watermark text" hint="Text is applied to every page.">
-          <Textarea value={options.watermark} onChange={(event) => update("watermark", event.target.value)} />
-        </Field>
+        <WatermarkOptions
+          options={options}
+          update={update}
+          imageFile={watermarkImageFile}
+          setImageFile={setWatermarkImageFile}
+        />
       ) : null}
       {tool.slug === "metadata" ? (
         <>
@@ -335,7 +410,7 @@ function ToolOptionsForm({
           <select
             className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             value={options.imageFormat}
-            onChange={(event) => update("imageFormat", event.target.value)}
+            onChange={(event) => update("imageFormat", event.target.value as ToolOptions["imageFormat"])}
           >
             <option value="png">PNG</option>
             <option value="jpg">JPG</option>
@@ -351,6 +426,377 @@ function ToolOptionsForm({
   );
 }
 
+type WatermarkOptionUpdater = <Key extends keyof ToolOptions>(
+  key: Key,
+  value: ToolOptions[Key]
+) => void;
+
+const watermarkPositionOptions: Array<{
+  value: ToolOptions["watermarkPosition"];
+  label: string;
+}> = [
+  { value: "top-left", label: "Top left" },
+  { value: "top-center", label: "Top center" },
+  { value: "top-right", label: "Top right" },
+  { value: "middle-left", label: "Middle left" },
+  { value: "middle-center", label: "Center" },
+  { value: "middle-right", label: "Middle right" },
+  { value: "bottom-left", label: "Bottom left" },
+  { value: "bottom-center", label: "Bottom center" },
+  { value: "bottom-right", label: "Bottom right" }
+];
+
+function WatermarkOptions({
+  options,
+  update,
+  imageFile,
+  setImageFile
+}: {
+  options: ToolOptions;
+  update: WatermarkOptionUpdater;
+  imageFile: File | null;
+  setImageFile: (file: File | null) => void;
+}) {
+  return (
+    <div className="space-y-6 md:col-span-2">
+      <div className="grid overflow-hidden rounded-lg border md:grid-cols-2">
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-28 flex-col items-center justify-center gap-2 border-b bg-background p-4 text-sm transition-colors md:border-b-0 md:border-r",
+            options.watermarkMode === "text" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("watermarkMode", "text")}
+        >
+          {options.watermarkMode === "text" ? <ModeCheck /> : null}
+          <Type className="h-10 w-10" strokeWidth={2.5} />
+          <span className="font-medium">Place text</span>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-28 flex-col items-center justify-center gap-2 bg-background p-4 text-sm transition-colors",
+            options.watermarkMode === "image" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("watermarkMode", "image")}
+        >
+          {options.watermarkMode === "image" ? <ModeCheck /> : null}
+          <ImageIcon className="h-10 w-10" strokeWidth={2.2} />
+          <span className="font-medium">Place image</span>
+        </button>
+      </div>
+
+      {options.watermarkMode === "text" ? (
+        <div className="space-y-4">
+          <Field label="Text">
+            <Textarea
+              value={options.watermarkText}
+              onChange={(event) => update("watermarkText", event.target.value)}
+              rows={3}
+            />
+          </Field>
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_140px]">
+            <Field label="Text format">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={options.watermarkFont}
+                  onChange={(event) => update("watermarkFont", event.target.value as ToolOptions["watermarkFont"])}
+                >
+                  <option value="helvetica">Arial</option>
+                  <option value="times">Times</option>
+                  <option value="courier">Courier</option>
+                </select>
+                <Input
+                  className="w-20"
+                  min="10"
+                  max="220"
+                  type="number"
+                  value={options.watermarkSize}
+                  onChange={(event) => update("watermarkSize", event.target.value)}
+                  aria-label="Watermark text size"
+                />
+                <FormatButton
+                  active={options.watermarkBold}
+                  label="Bold"
+                  onClick={() => update("watermarkBold", !options.watermarkBold)}
+                >
+                  <Bold className="h-4 w-4" />
+                </FormatButton>
+                <FormatButton
+                  active={options.watermarkItalic}
+                  label="Italic"
+                  onClick={() => update("watermarkItalic", !options.watermarkItalic)}
+                >
+                  <Italic className="h-4 w-4" />
+                </FormatButton>
+                <FormatButton
+                  active={options.watermarkUnderline}
+                  label="Underline"
+                  onClick={() => update("watermarkUnderline", !options.watermarkUnderline)}
+                >
+                  <Underline className="h-4 w-4" />
+                </FormatButton>
+              </div>
+            </Field>
+            <Field label="Color">
+              <div className="flex h-10 overflow-hidden rounded-md border bg-background">
+                <input
+                  className="h-full w-14 cursor-pointer border-0 bg-transparent p-1"
+                  type="color"
+                  value={/^#[0-9a-f]{6}$/i.test(options.watermarkColor) ? options.watermarkColor : "#000000"}
+                  onChange={(event) => update("watermarkColor", event.target.value)}
+                  aria-label="Watermark text color"
+                />
+                <Input
+                  className="h-full rounded-none border-0 font-mono uppercase focus-visible:ring-0 focus-visible:ring-offset-0"
+                  value={options.watermarkColor}
+                  onChange={(event) => update("watermarkColor", event.target.value)}
+                />
+              </div>
+            </Field>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+          <Field label="Image">
+            <label className="flex min-h-24 cursor-pointer items-center justify-center rounded-lg border border-dashed bg-muted/35 px-4 text-center text-sm transition-colors hover:bg-muted/60">
+              <input
+                className="sr-only"
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+              />
+              <span>
+                {imageFile ? `${imageFile.name} (${formatBytes(imageFile.size)})` : "Choose PNG or JPG"}
+              </span>
+            </label>
+          </Field>
+          <Field label="Image size">
+            <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
+              <input
+                className="w-full accent-primary"
+                min="4"
+                max="90"
+                type="range"
+                value={options.watermarkImageScale}
+                onChange={(event) => update("watermarkImageScale", event.target.value)}
+                aria-label="Watermark image size"
+              />
+              <span className="w-10 text-right text-sm tabular-nums">{options.watermarkImageScale}%</span>
+            </div>
+          </Field>
+        </div>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <Field label="Position">
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="grid h-[108px] w-[108px] grid-cols-3 overflow-hidden rounded-md border bg-background">
+              {watermarkPositionOptions.map((position) => (
+                <button
+                  key={position.value}
+                  type="button"
+                  aria-label={position.label}
+                  className={cn(
+                    "grid place-items-center border-r border-t transition-colors first:border-t-0 [&:nth-child(-n+3)]:border-t-0 [&:nth-child(3n)]:border-r-0",
+                    options.watermarkPosition === position.value && !options.watermarkMosaic
+                      ? "bg-primary/15"
+                      : "hover:bg-muted"
+                  )}
+                  onClick={() => {
+                    update("watermarkPosition", position.value);
+                    update("watermarkMosaic", false);
+                  }}
+                >
+                  <span
+                    className={cn(
+                      "h-4 w-4 rounded-full",
+                      options.watermarkPosition === position.value && !options.watermarkMosaic
+                        ? "bg-primary"
+                        : "bg-muted-foreground/35"
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+            <label className="flex h-10 items-center gap-3 text-sm">
+              <input
+                className="h-5 w-5 accent-primary"
+                type="checkbox"
+                checked={options.watermarkMosaic}
+                onChange={(event) => update("watermarkMosaic", event.target.checked)}
+              />
+              Mosaic
+            </label>
+          </div>
+        </Field>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Custom X">
+            <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
+              <input
+                className="w-full accent-primary"
+                min="0"
+                max="100"
+                type="range"
+                value={options.watermarkX}
+                onChange={(event) => {
+                  update("watermarkX", event.target.value);
+                  update("watermarkPosition", "custom");
+                  update("watermarkMosaic", false);
+                }}
+              />
+              <span className="w-10 text-right text-sm tabular-nums">{options.watermarkX}%</span>
+            </div>
+          </Field>
+          <Field label="Custom Y">
+            <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
+              <input
+                className="w-full accent-primary"
+                min="0"
+                max="100"
+                type="range"
+                value={options.watermarkY}
+                onChange={(event) => {
+                  update("watermarkY", event.target.value);
+                  update("watermarkPosition", "custom");
+                  update("watermarkMosaic", false);
+                }}
+              />
+              <span className="w-10 text-right text-sm tabular-nums">{options.watermarkY}%</span>
+            </div>
+          </Field>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Transparency">
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            value={options.watermarkOpacity}
+            onChange={(event) => update("watermarkOpacity", event.target.value)}
+          >
+            <option value="1">No transparency</option>
+            <option value="0.55">Light transparency</option>
+            <option value="0.3">Medium transparency</option>
+            <option value="0.15">High transparency</option>
+          </select>
+        </Field>
+        <Field label="Rotation">
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            value={options.watermarkRotation}
+            onChange={(event) => update("watermarkRotation", event.target.value)}
+          >
+            <option value="0">Do not rotate</option>
+            <option value="-32">Rotate left</option>
+            <option value="32">Rotate right</option>
+            <option value="-45">45 degrees left</option>
+            <option value="45">45 degrees right</option>
+          </select>
+        </Field>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Pages">
+          <div className="grid grid-cols-2 overflow-hidden rounded-md border bg-background">
+            <Input
+              className="rounded-none border-0 border-r focus-visible:ring-0 focus-visible:ring-offset-0"
+              min="1"
+              type="number"
+              value={options.watermarkFromPage}
+              onChange={(event) => update("watermarkFromPage", event.target.value)}
+              aria-label="Watermark from page"
+            />
+            <Input
+              className="rounded-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              min="1"
+              type="number"
+              placeholder="Last"
+              value={options.watermarkToPage}
+              onChange={(event) => update("watermarkToPage", event.target.value)}
+              aria-label="Watermark to page"
+            />
+          </div>
+        </Field>
+        <Field label="Layer">
+          <div className="grid grid-cols-2 gap-2">
+            <LayerButton
+              active={options.watermarkLayer === "over"}
+              label="Over PDF content"
+              onClick={() => update("watermarkLayer", "over")}
+            />
+            <LayerButton
+              active={options.watermarkLayer === "under"}
+              label="Below PDF content"
+              onClick={() => update("watermarkLayer", "under")}
+            />
+          </div>
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function ModeCheck() {
+  return (
+    <span className="absolute left-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-secondary text-secondary-foreground">
+      <Check className="h-4 w-4" />
+    </span>
+  );
+}
+
+function FormatButton({
+  active,
+  label,
+  children,
+  onClick
+}: {
+  active: boolean;
+  label: string;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "default" : "outline"}
+      size="icon"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
+function LayerButton({
+  active,
+  label,
+  onClick
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border bg-muted/35 p-3 text-center text-sm transition-colors",
+        active ? "border-primary text-primary" : "text-muted-foreground hover:bg-muted"
+      )}
+      onClick={onClick}
+    >
+      <Layers className="h-7 w-7" />
+      <span className="leading-tight">{label}</span>
+    </button>
+  );
+}
+
 function Field({
   label,
   hint,
@@ -361,11 +807,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm">
+    <div className="grid gap-2 text-sm">
       <span className="font-medium">{label}</span>
       {children}
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
-    </label>
+    </div>
   );
 }
 

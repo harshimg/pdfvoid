@@ -4,6 +4,38 @@ export type PdfToolOptions = {
   order?: string;
   rotation?: string;
   watermark?: string;
+  watermarkMode?: "text" | "image";
+  watermarkText?: string;
+  watermarkFont?: "helvetica" | "times" | "courier";
+  watermarkColor?: string;
+  watermarkBold?: boolean;
+  watermarkItalic?: boolean;
+  watermarkUnderline?: boolean;
+  watermarkSize?: string;
+  watermarkPosition?:
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "middle-left"
+    | "middle-center"
+    | "middle-right"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right"
+    | "custom";
+  watermarkMosaic?: boolean;
+  watermarkX?: string;
+  watermarkY?: string;
+  watermarkOpacity?: string;
+  watermarkRotation?: string;
+  watermarkFromPage?: string;
+  watermarkToPage?: string;
+  watermarkLayer?: "over" | "under";
+  watermarkImageScale?: string;
+  watermarkImage?: {
+    type: "image/png" | "image/jpeg";
+    bytes: Uint8Array;
+  };
   title?: string;
   author?: string;
   subject?: string;

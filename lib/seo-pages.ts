@@ -123,7 +123,7 @@ export const seoPages: SeoPage[] = [
     slug: "add-watermark-to-pdf",
     toolSlug: "watermark",
     title: "Add Watermark to PDF Online Free",
-    description: "Add a text watermark to PDF pages online for free.",
+    description: "Add text or image watermarks to PDF pages online for free.",
     h1: "Add watermark to PDF",
     intro: "Stamp text across your PDF pages for drafts, approvals, or internal documents.",
     keywords: ["add watermark to pdf", "watermark pdf", "pdf watermark"]

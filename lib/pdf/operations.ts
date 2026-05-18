@@ -1,4 +1,4 @@
-import { degrees, PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { zipSync } from "fflate";
 import type { ToolSlug } from "@/lib/tools";
 import type { UploadedInput } from "@/lib/security/upload-guards";
@@ -145,23 +145,281 @@ async function rearrangePages(bytes: Uint8Array, options: PdfToolOptions) {
 
 async function addWatermark(bytes: Uint8Array, options: PdfToolOptions) {
   const input = await PDFDocument.load(bytes);
-  const font = await input.embedFont(StandardFonts.HelveticaBold);
-  const text = sanitizeText(options.watermark ?? "Confidential", 80);
+  const settings = getWatermarkSettings(options, input.getPageCount());
 
-  input.getPages().forEach((page) => {
-    const { width, height } = page.getSize();
-    page.drawText(text, {
-      x: width * 0.18,
-      y: height * 0.48,
-      size: Math.min(width, height) / 12,
-      font,
-      color: rgb(0.08, 0.56, 0.72),
-      opacity: 0.22,
-      rotate: degrees(-32)
+  if (settings.mode === "image" && !options.watermarkImage) {
+    throw new Error("Choose a PNG or JPG image for the watermark.");
+  }
+
+  if (settings.layer === "under") {
+    const output = await PDFDocument.create();
+    const embeddedPages = await output.embedPdf(bytes, input.getPageIndices());
+    const resources = await createWatermarkResources(output, options, settings);
+
+    input.getPages().forEach((sourcePage, index) => {
+      const { width, height } = sourcePage.getSize();
+      const page = output.addPage([width, height]);
+      if (settings.pageIndexes.has(index)) drawWatermark(page, resources, settings);
+      page.drawPage(embeddedPages[index], { x: 0, y: 0, width, height });
     });
+
+    return output.save({ useObjectStreams: true });
+  }
+
+  const resources = await createWatermarkResources(input, options, settings);
+  input.getPages().forEach((page, index) => {
+    if (settings.pageIndexes.has(index)) drawWatermark(page, resources, settings);
   });
 
   return input.save({ useObjectStreams: true });
+}
+
+type WatermarkPosition = NonNullable<PdfToolOptions["watermarkPosition"]>;
+
+type WatermarkSettings = {
+  mode: "text" | "image";
+  color: ReturnType<typeof rgb>;
+  fontSize: number;
+  imageScale: number;
+  opacity: number;
+  rotation: number;
+  position: WatermarkPosition;
+  mosaic: boolean;
+  underline: boolean;
+  xPercent: number;
+  yPercent: number;
+  layer: "over" | "under";
+  pageIndexes: Set<number>;
+};
+
+type WatermarkResources =
+  | {
+      mode: "text";
+      font: PDFFont;
+      text: string;
+    }
+  | {
+      mode: "image";
+      image: PDFImage;
+    };
+
+function getWatermarkSettings(options: PdfToolOptions, pageCount: number): WatermarkSettings {
+  return {
+    mode: options.watermarkMode === "image" ? "image" : "text",
+    color: parseHexColor(options.watermarkColor ?? "#0891b2"),
+    fontSize: clampNumber(Number(options.watermarkSize ?? 64), 10, 220, 64),
+    imageScale: clampNumber(Number(options.watermarkImageScale ?? 28), 4, 90, 28),
+    opacity: clampNumber(Number(options.watermarkOpacity ?? 0.22), 0.05, 1, 0.22),
+    rotation: clampNumber(Number(options.watermarkRotation ?? -32), -180, 180, -32),
+    position: getWatermarkPosition(options.watermarkPosition),
+    mosaic: Boolean(options.watermarkMosaic),
+    underline: Boolean(options.watermarkUnderline),
+    xPercent: clampNumber(Number(options.watermarkX ?? 50), 0, 100, 50),
+    yPercent: clampNumber(Number(options.watermarkY ?? 50), 0, 100, 50),
+    layer: options.watermarkLayer === "under" ? "under" : "over",
+    pageIndexes: getWatermarkPageIndexes(options, pageCount)
+  };
+}
+
+async function createWatermarkResources(
+  document: PDFDocument,
+  options: PdfToolOptions,
+  settings: WatermarkSettings
+): Promise<WatermarkResources> {
+  if (settings.mode === "image") {
+    const image = options.watermarkImage?.type === "image/png"
+      ? await document.embedPng(options.watermarkImage.bytes)
+      : await document.embedJpg(options.watermarkImage?.bytes ?? new Uint8Array());
+    return { mode: "image", image };
+  }
+
+  const font = await document.embedFont(getWatermarkFont(options));
+  const text = sanitizeText(options.watermarkText ?? options.watermark ?? "Confidential", 120);
+  if (!text.trim()) throw new Error("Enter watermark text.");
+  return { mode: "text", font, text };
+}
+
+function drawWatermark(page: PDFPage, resources: WatermarkResources, settings: WatermarkSettings) {
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+  const placements = settings.mosaic
+    ? watermarkPositions.filter((position) => position !== "custom")
+    : [settings.position];
+
+  for (const position of placements) {
+    if (resources.mode === "text") {
+      const requestedSize = Math.min(settings.fontSize, Math.min(pageWidth, pageHeight) / 4);
+      const textWidthAtRequestedSize = resources.font.widthOfTextAtSize(resources.text, requestedSize);
+      const maxWidth = pageWidth * 0.84;
+      const fontSize = textWidthAtRequestedSize > maxWidth
+        ? Math.max(10, requestedSize * (maxWidth / textWidthAtRequestedSize))
+        : requestedSize;
+      const textWidth = resources.font.widthOfTextAtSize(resources.text, fontSize);
+      const textHeight = fontSize;
+      const { x, y } = getWatermarkCoordinates(
+        position,
+        pageWidth,
+        pageHeight,
+        textWidth,
+        textHeight,
+        settings
+      );
+
+      page.drawText(resources.text, {
+        x,
+        y,
+        size: fontSize,
+        font: resources.font,
+        color: settings.color,
+        opacity: settings.opacity,
+        rotate: degrees(settings.rotation)
+      });
+
+      if (settings.underline) {
+        drawTextUnderline(page, x, y, textWidth, fontSize, settings);
+      }
+      continue;
+    }
+
+    const imageWidth = Math.min(pageWidth, pageHeight) * (settings.imageScale / 100);
+    const imageHeight = imageWidth * (resources.image.height / resources.image.width);
+    const { x, y } = getWatermarkCoordinates(
+      position,
+      pageWidth,
+      pageHeight,
+      imageWidth,
+      imageHeight,
+      settings
+    );
+
+    page.drawImage(resources.image, {
+      x,
+      y,
+      width: imageWidth,
+      height: imageHeight,
+      opacity: settings.opacity,
+      rotate: degrees(settings.rotation)
+    });
+  }
+}
+
+function drawTextUnderline(
+  page: PDFPage,
+  x: number,
+  y: number,
+  width: number,
+  fontSize: number,
+  settings: WatermarkSettings
+) {
+  page.drawRectangle({
+    x,
+    y: y - fontSize * 0.14,
+    width,
+    height: Math.max(1, fontSize * 0.035),
+    color: settings.color,
+    opacity: settings.opacity,
+    rotate: degrees(settings.rotation)
+  });
+}
+
+const watermarkPositions: WatermarkPosition[] = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right"
+];
+
+function getWatermarkCoordinates(
+  position: WatermarkPosition,
+  pageWidth: number,
+  pageHeight: number,
+  itemWidth: number,
+  itemHeight: number,
+  settings: WatermarkSettings
+) {
+  if (position === "custom") {
+    return {
+      x: clampNumber((pageWidth * settings.xPercent) / 100 - itemWidth / 2, 0, pageWidth - itemWidth, 0),
+      y: clampNumber((pageHeight * settings.yPercent) / 100 - itemHeight / 2, 0, pageHeight - itemHeight, 0)
+    };
+  }
+
+  const margin = Math.min(pageWidth, pageHeight) * 0.08;
+  const [vertical, horizontal] = position.split("-");
+  const x = horizontal === "left"
+    ? margin
+    : horizontal === "right"
+      ? pageWidth - itemWidth - margin
+      : (pageWidth - itemWidth) / 2;
+  const y = vertical === "top"
+    ? pageHeight - itemHeight - margin
+    : vertical === "bottom"
+      ? margin
+      : (pageHeight - itemHeight) / 2;
+
+  return {
+    x: clampNumber(x, 0, pageWidth - itemWidth, 0),
+    y: clampNumber(y, 0, pageHeight - itemHeight, 0)
+  };
+}
+
+function getWatermarkFont(options: PdfToolOptions) {
+  const bold = Boolean(options.watermarkBold);
+  const italic = Boolean(options.watermarkItalic);
+
+  if (options.watermarkFont === "times") {
+    if (bold && italic) return StandardFonts.TimesRomanBoldItalic;
+    if (bold) return StandardFonts.TimesRomanBold;
+    if (italic) return StandardFonts.TimesRomanItalic;
+    return StandardFonts.TimesRoman;
+  }
+
+  if (options.watermarkFont === "courier") {
+    if (bold && italic) return StandardFonts.CourierBoldOblique;
+    if (bold) return StandardFonts.CourierBold;
+    if (italic) return StandardFonts.CourierOblique;
+    return StandardFonts.Courier;
+  }
+
+  if (bold && italic) return StandardFonts.HelveticaBoldOblique;
+  if (bold) return StandardFonts.HelveticaBold;
+  if (italic) return StandardFonts.HelveticaOblique;
+  return StandardFonts.Helvetica;
+}
+
+function getWatermarkPosition(position: PdfToolOptions["watermarkPosition"]): WatermarkPosition {
+  return position && [...watermarkPositions, "custom"].includes(position) ? position : "middle-center";
+}
+
+function getWatermarkPageIndexes(options: PdfToolOptions, pageCount: number) {
+  const fromRaw = options.watermarkFromPage?.trim();
+  const toRaw = options.watermarkToPage?.trim();
+  const fromPage = Math.trunc(clampNumber(Number(fromRaw || 1), 1, pageCount, 1));
+  const toPage = Math.trunc(clampNumber(Number(toRaw || pageCount), 1, pageCount, pageCount));
+  if (fromPage > toPage) throw new Error("Watermark start page must be before the end page.");
+
+  return new Set(
+    Array.from({ length: toPage - fromPage + 1 }, (_, index) => fromPage + index - 1)
+  );
+}
+
+function parseHexColor(value: string) {
+  const match = value.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return rgb(0.03, 0.57, 0.7);
+  return rgb(
+    parseInt(match[1], 16) / 255,
+    parseInt(match[2], 16) / 255,
+    parseInt(match[3], 16) / 255
+  );
+}
+
+function clampNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 async function addPageNumbers(bytes: Uint8Array) {

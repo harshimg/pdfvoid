@@ -143,7 +143,7 @@ export const tools: Tool[] = [
   {
     slug: "watermark",
     name: "Add Watermark",
-    description: "Stamp text diagonally across every page.",
+    description: "Stamp text or image watermarks across selected PDF pages.",
     category: "edit",
     icon: Stamp,
     accepts: "pdf",
