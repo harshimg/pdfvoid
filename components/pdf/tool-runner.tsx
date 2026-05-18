@@ -83,6 +83,12 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
         return;
       }
 
+      if (tool.slug === "compress") {
+        await compressPdfInBrowser(files[0].file, setProgress);
+        toast.success("Compressed PDF is ready.");
+        return;
+      }
+
       const formData = new FormData();
       files.forEach((item) => formData.append("files", item.file));
       formData.append("options", JSON.stringify(options));
@@ -197,8 +203,8 @@ function ToolOptionsForm({
   if (tool.slug === "compress") {
     return (
       <p className="text-sm text-muted-foreground">
-        Compression rebuilds pages as optimized JPEG-backed PDF pages when that makes
-        the file smaller. Best for scanned PDFs and photo-heavy PDFs.
+        Compression runs in your browser and rebuilds pages as optimized JPEG-backed
+        PDF pages. Best for scanned PDFs and photo-heavy PDFs.
       </p>
     );
   }
@@ -319,4 +325,120 @@ async function mergePdfsInBrowser(
     "merged.pdf"
   );
   setProgress(100);
+}
+
+async function compressPdfInBrowser(
+  file: File,
+  setProgress: (progress: number) => void
+) {
+  if (file.type !== "application/pdf") {
+    throw new Error(`${file.name} is not a PDF file.`);
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const header = new TextDecoder().decode(bytes.slice(0, 8));
+  if (!header.startsWith("%PDF-")) {
+    throw new Error(`${file.name} does not look like a valid PDF.`);
+  }
+
+  const [{ PDFDocument }, pdfjs] = await Promise.all([
+    import("pdf-lib"),
+    import("pdfjs-dist")
+  ]);
+
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+
+  const loadingTask = pdfjs.getDocument({
+    data: bytes,
+    useSystemFonts: true,
+    isEvalSupported: false
+  } as Parameters<typeof pdfjs.getDocument>[0]);
+  const input = await loadingTask.promise;
+  const output = await PDFDocument.create();
+
+  for (let pageNumber = 1; pageNumber <= input.numPages; pageNumber += 1) {
+    const page = await input.getPage(pageNumber);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = getBrowserCompressionScale(input.numPages);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext("2d", { alpha: false });
+
+    if (!context) {
+      throw new Error("Your browser could not create a canvas for compression.");
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({
+      canvas,
+      canvasContext: context,
+      viewport
+    }).promise;
+
+    const jpegBytes = new Uint8Array(
+      await canvasToArrayBuffer(canvas, getBrowserCompressionQuality(input.numPages))
+    );
+    const image = await output.embedJpg(jpegBytes);
+    const outputPage = output.addPage([baseViewport.width, baseViewport.height]);
+
+    outputPage.drawImage(image, {
+      x: 0,
+      y: 0,
+      width: baseViewport.width,
+      height: baseViewport.height
+    });
+
+    page.cleanup();
+    canvas.width = 0;
+    canvas.height = 0;
+    setProgress(20 + Math.round((pageNumber / input.numPages) * 70));
+  }
+
+  await input.destroy();
+  const compressedBytes = await output.save({ useObjectStreams: true, objectsPerTick: 25 });
+
+  if (compressedBytes.length >= bytes.length) {
+    throw new Error(
+      "This PDF is already optimized or cannot be reduced with browser compression."
+    );
+  }
+
+  downloadBlob(
+    new Blob([compressedBytes as BlobPart], { type: "application/pdf" }),
+    "compressed.pdf"
+  );
+  setProgress(100);
+}
+
+function canvasToArrayBuffer(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error("Unable to encode compressed page image."));
+          return;
+        }
+        resolve(await blob.arrayBuffer());
+      },
+      "image/jpeg",
+      quality
+    );
+  });
+}
+
+function getBrowserCompressionScale(pageCount: number) {
+  if (pageCount > 80) return 0.5;
+  if (pageCount > 35) return 0.58;
+  if (pageCount > 12) return 0.68;
+  return 0.78;
+}
+
+function getBrowserCompressionQuality(pageCount: number) {
+  if (pageCount > 35) return 0.34;
+  if (pageCount > 12) return 0.38;
+  return 0.42;
 }
