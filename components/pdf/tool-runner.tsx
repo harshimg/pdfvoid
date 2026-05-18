@@ -52,6 +52,51 @@ const compressionProfiles = [
   { name: "extreme", scale: 0.2, quality: 0.16, grayscale: true }
 ];
 
+const ghostscriptCompressionProfiles = [
+  {
+    name: "ebook",
+    pdfSettings: "/ebook",
+    imageResolution: "144",
+    monoResolution: "200",
+    targetRatio: 0.6
+  },
+  {
+    name: "strong",
+    pdfSettings: "/screen",
+    imageResolution: "96",
+    monoResolution: "150",
+    targetRatio: 0.45
+  },
+  {
+    name: "maximum",
+    pdfSettings: "/screen",
+    imageResolution: "72",
+    monoResolution: "120",
+    targetRatio: 0.3
+  }
+];
+
+type GhostscriptFileSystem = {
+  writeFile: (path: string, data: Uint8Array) => void;
+  readFile: (path: string, options?: { encoding?: "binary" }) => Uint8Array;
+};
+
+type GhostscriptModule = {
+  arguments: string[];
+  preRun: Array<() => void>;
+  postRun: Array<() => void>;
+  locateFile: (path: string) => string;
+  print: (text: string) => void;
+  printErr: (text: string) => void;
+  setStatus: (text: string) => void;
+  totalDependencies: number;
+};
+
+type GhostscriptWindow = Window & {
+  FS?: GhostscriptFileSystem;
+  Module?: GhostscriptModule;
+};
+
 export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [options, setOptions] = useState(defaultOptions);
@@ -211,8 +256,9 @@ function ToolOptionsForm({
   if (tool.slug === "compress") {
     return (
       <p className="text-sm text-muted-foreground">
-        Compression runs in your browser and rebuilds pages as optimized JPEG-backed
-        PDF pages. Best for scanned PDFs and photo-heavy PDFs.
+        Compression runs in your browser with free Ghostscript WASM first, then
+        falls back to page raster compression when needed. Best for scanned and
+        image-heavy PDFs.
       </p>
     );
   }
@@ -349,6 +395,20 @@ async function compressPdfInBrowser(
     throw new Error(`${file.name} does not look like a valid PDF.`);
   }
 
+  const ghostscriptBytes = await compressWithGhostscriptWasm(bytes, setProgress).catch(() => undefined);
+
+  if (ghostscriptBytes && ghostscriptBytes.length < bytes.length) {
+    downloadBlob(
+      new Blob([ghostscriptBytes as BlobPart], { type: "application/pdf" }),
+      "compressed.pdf"
+    );
+    setProgress(100);
+    const percent = Math.max(1, Math.round((1 - ghostscriptBytes.length / bytes.length) * 100));
+    toast.success(`Reduced by ${percent}% with maximum browser compression.`);
+    return;
+  }
+
+  setProgress(22);
   const [{ PDFDocument }, pdfjs] = await Promise.all([
     import("pdf-lib"),
     import("pdfjs-dist")
@@ -435,7 +495,7 @@ async function compressPdfInBrowser(
 
   if (!bestBytes || bestBytes.length >= bytes.length) {
     throw new Error(
-      "This PDF needs server-grade compression to shrink further. Browser compression could not make it smaller without damaging quality."
+      "This PDF is already optimized for the free browser compressor. Try a scanned or image-heavy PDF for bigger reductions."
     );
   }
 
@@ -446,6 +506,135 @@ async function compressPdfInBrowser(
   setProgress(100);
   const percent = Math.max(1, Math.round((1 - bestBytes.length / bytes.length) * 100));
   toast.success(`Reduced by ${percent}% using ${bestProfileName} compression.`);
+}
+
+async function compressWithGhostscriptWasm(
+  inputBytes: Uint8Array,
+  setProgress: (progress: number) => void
+) {
+  if (typeof window === "undefined") return undefined;
+
+  let bestBytes: Uint8Array | undefined;
+
+  for (const [index, profile] of ghostscriptCompressionProfiles.entries()) {
+    const progressStart = 20 + Math.round((index / ghostscriptCompressionProfiles.length) * 58);
+    const progressEnd = 20 + Math.round(((index + 1) / ghostscriptCompressionProfiles.length) * 58);
+    setProgress(progressStart);
+
+    const candidateBytes = await runGhostscriptCompression(inputBytes, profile, (ratio) => {
+      setProgress(progressStart + Math.round((progressEnd - progressStart) * ratio));
+    });
+
+    if (!bestBytes || candidateBytes.length < bestBytes.length) {
+      bestBytes = candidateBytes;
+    }
+
+    if (candidateBytes.length <= inputBytes.length * profile.targetRatio) {
+      break;
+    }
+  }
+
+  return bestBytes;
+}
+
+async function runGhostscriptCompression(
+  inputBytes: Uint8Array,
+  profile: (typeof ghostscriptCompressionProfiles)[number],
+  onProgress: (ratio: number) => void
+) {
+  const ghostscriptWindow = window as GhostscriptWindow;
+  const outputFileName = `compressed-${profile.name}.pdf`;
+  const script = document.createElement("script");
+
+  const args = [
+    "-sDEVICE=pdfwrite",
+    "-dCompatibilityLevel=1.4",
+    `-dPDFSETTINGS=${profile.pdfSettings}`,
+    "-dNOPAUSE",
+    "-dQUIET",
+    "-dBATCH",
+    "-dSAFER",
+    "-dDetectDuplicateImages=true",
+    "-dCompressFonts=true",
+    "-dSubsetFonts=true",
+    "-dEmbedAllFonts=true",
+    "-dColorImageDownsampleType=/Bicubic",
+    `-dColorImageResolution=${profile.imageResolution}`,
+    "-dGrayImageDownsampleType=/Bicubic",
+    `-dGrayImageResolution=${profile.imageResolution}`,
+    "-dMonoImageDownsampleType=/Subsample",
+    `-dMonoImageResolution=${profile.monoResolution}`,
+    `-sOutputFile=${outputFileName}`,
+    "input.pdf"
+  ];
+
+  return new Promise<Uint8Array>((resolve, reject) => {
+    let finished = false;
+
+    const cleanup = () => {
+      finished = true;
+      clearTimeout(timeoutId);
+      script.remove();
+      delete ghostscriptWindow.Module;
+    };
+
+    const fail = (error: unknown) => {
+      if (finished) return;
+      cleanup();
+      reject(error instanceof Error ? error : new Error("Ghostscript compression failed."));
+    };
+
+    ghostscriptWindow.Module = {
+      arguments: args,
+      locateFile: (path) => `/ghostscript/${path}`,
+      preRun: [
+        () => {
+          const fs = ghostscriptWindow.FS;
+          if (!fs) throw new Error("Ghostscript filesystem is not ready.");
+          fs.writeFile("input.pdf", inputBytes);
+        }
+      ],
+      postRun: [
+        () => {
+          const fs = ghostscriptWindow.FS;
+          if (!fs) {
+            fail(new Error("Ghostscript output filesystem is not ready."));
+            return;
+          }
+
+          try {
+            const outputBytes = fs.readFile(outputFileName, { encoding: "binary" });
+            cleanup();
+            resolve(outputBytes);
+          } catch (error) {
+            fail(error);
+          }
+        }
+      ],
+      print: () => undefined,
+      printErr: () => undefined,
+      setStatus: (text) => {
+        const match = text.match(/\((\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\)/);
+        if (!match) return;
+
+        const current = Number(match[1]);
+        const total = Number(match[2]);
+        if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
+          onProgress(Math.min(0.95, current / total));
+        }
+      },
+      totalDependencies: 0
+    };
+
+    script.async = true;
+    script.src = `/ghostscript/gs.js?v=${Date.now()}-${profile.name}`;
+    script.onerror = () => fail(new Error("Unable to load Ghostscript compression engine."));
+    const timeoutId = setTimeout(
+      () => fail(new Error("Ghostscript compression timed out.")),
+      120000
+    );
+    document.body.appendChild(script);
+  });
 }
 
 function canvasToArrayBuffer(canvas: HTMLCanvasElement, quality: number) {

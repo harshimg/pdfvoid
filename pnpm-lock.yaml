@@ -44,6 +44,9 @@ importers:
       framer-motion:
         specifier: ^12.0.6
         version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      ghostscript-pdf-processor:
+        specifier: ^1.1.2
+        version: 1.1.2
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.6)
@@ -1581,6 +1584,9 @@ packages:
   get-tsconfig@4.14.0:
     resolution: {integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==}
 
+  ghostscript-pdf-processor@1.1.2:
+    resolution: {integrity: sha512-Z0p/hg7blQO8R9QbPRFyee8xTeG/c5JDOHqsez36Jmidwxh+uaq4b/0IJsBUyCBl71ogT+GhQXgKq1YlzwYxZw==}
+
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
     engines: {node: '>= 6'}
@@ -2455,6 +2461,10 @@ packages:
   word-wrap@1.2.5:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
+
+  xhr2@0.2.1:
+    resolution: {integrity: sha512-sID0rrVCqkVNUn8t6xuv9+6FViXjUVXq8H5rWOH2rz9fDNQEd4g0EA2XlcEdJXRz5BMEn4O1pJFdT+z4YHhoWw==}
+    engines: {node: '>= 6'}
 
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
@@ -3957,6 +3967,10 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
+  ghostscript-pdf-processor@1.1.2:
+    dependencies:
+      xhr2: 0.2.1
+
   glob-parent@5.1.2:
     dependencies:
       is-glob: 4.0.3
@@ -4981,6 +4995,8 @@ snapshots:
       isexe: 2.0.0
 
   word-wrap@1.2.5: {}
+
+  xhr2@0.2.1: {}
 
   yocto-queue@0.1.0: {}
 
