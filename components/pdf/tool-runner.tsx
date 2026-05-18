@@ -44,6 +44,14 @@ const defaultOptions: ToolOptions = {
   password: ""
 };
 
+const compressionProfiles = [
+  { name: "balanced", scale: 0.72, quality: 0.38, grayscale: false },
+  { name: "strong", scale: 0.52, quality: 0.3, grayscale: false },
+  { name: "smaller", scale: 0.38, quality: 0.24, grayscale: false },
+  { name: "smallest", scale: 0.28, quality: 0.2, grayscale: true },
+  { name: "extreme", scale: 0.2, quality: 0.16, grayscale: true }
+];
+
 export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [options, setOptions] = useState(defaultOptions);
@@ -354,64 +362,90 @@ async function compressPdfInBrowser(
     isEvalSupported: false
   } as Parameters<typeof pdfjs.getDocument>[0]);
   const input = await loadingTask.promise;
-  const output = await PDFDocument.create();
+  let bestBytes: Uint8Array | undefined;
+  let bestProfileName = "";
+  const targetBytes = bytes.length * 0.48;
 
-  for (let pageNumber = 1; pageNumber <= input.numPages; pageNumber += 1) {
-    const page = await input.getPage(pageNumber);
-    const baseViewport = page.getViewport({ scale: 1 });
-    const scale = getBrowserCompressionScale(input.numPages);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    const context = canvas.getContext("2d", { alpha: false });
+  try {
+    for (const [profileIndex, profile] of compressionProfiles.entries()) {
+      const output = await PDFDocument.create();
 
-    if (!context) {
-      throw new Error("Your browser could not create a canvas for compression.");
+      for (let pageNumber = 1; pageNumber <= input.numPages; pageNumber += 1) {
+        const page = await input.getPage(pageNumber);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: profile.scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false });
+
+        if (!context) {
+          throw new Error("Your browser could not create a canvas for compression.");
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({
+          canvas,
+          canvasContext: context,
+          viewport
+        }).promise;
+
+        if (profile.grayscale) {
+          convertCanvasToGrayscale(context, canvas.width, canvas.height);
+        }
+
+        const jpegBytes = new Uint8Array(
+          await canvasToArrayBuffer(canvas, profile.quality)
+        );
+        const image = await output.embedJpg(jpegBytes);
+        const outputPage = output.addPage([baseViewport.width, baseViewport.height]);
+
+        outputPage.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: baseViewport.width,
+          height: baseViewport.height
+        });
+
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+        const completedProfiles = profileIndex / compressionProfiles.length;
+        const completedPages = pageNumber / input.numPages / compressionProfiles.length;
+        setProgress(20 + Math.round((completedProfiles + completedPages) * 70));
+      }
+
+      const candidateBytes = await output.save({
+        useObjectStreams: true,
+        objectsPerTick: 25
+      });
+
+      if (!bestBytes || candidateBytes.length < bestBytes.length) {
+        bestBytes = candidateBytes;
+        bestProfileName = profile.name;
+      }
+
+      if (candidateBytes.length < targetBytes) break;
     }
-
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({
-      canvas,
-      canvasContext: context,
-      viewport
-    }).promise;
-
-    const jpegBytes = new Uint8Array(
-      await canvasToArrayBuffer(canvas, getBrowserCompressionQuality(input.numPages))
-    );
-    const image = await output.embedJpg(jpegBytes);
-    const outputPage = output.addPage([baseViewport.width, baseViewport.height]);
-
-    outputPage.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: baseViewport.width,
-      height: baseViewport.height
-    });
-
-    page.cleanup();
-    canvas.width = 0;
-    canvas.height = 0;
-    setProgress(20 + Math.round((pageNumber / input.numPages) * 70));
+  } finally {
+    await input.destroy();
   }
 
-  await input.destroy();
-  const compressedBytes = await output.save({ useObjectStreams: true, objectsPerTick: 25 });
-
-  if (compressedBytes.length >= bytes.length) {
+  if (!bestBytes || bestBytes.length >= bytes.length) {
     throw new Error(
-      "This PDF is already optimized or cannot be reduced with browser compression."
+      "This PDF needs server-grade compression to shrink further. Browser compression could not make it smaller without damaging quality."
     );
   }
 
   downloadBlob(
-    new Blob([compressedBytes as BlobPart], { type: "application/pdf" }),
+    new Blob([bestBytes as BlobPart], { type: "application/pdf" }),
     "compressed.pdf"
   );
   setProgress(100);
+  const percent = Math.max(1, Math.round((1 - bestBytes.length / bytes.length) * 100));
+  toast.success(`Reduced by ${percent}% using ${bestProfileName} compression.`);
 }
 
 function canvasToArrayBuffer(canvas: HTMLCanvasElement, quality: number) {
@@ -430,15 +464,22 @@ function canvasToArrayBuffer(canvas: HTMLCanvasElement, quality: number) {
   });
 }
 
-function getBrowserCompressionScale(pageCount: number) {
-  if (pageCount > 80) return 0.5;
-  if (pageCount > 35) return 0.58;
-  if (pageCount > 12) return 0.68;
-  return 0.78;
-}
+function convertCanvasToGrayscale(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number
+) {
+  const imageData = context.getImageData(0, 0, width, height);
+  const { data } = imageData;
 
-function getBrowserCompressionQuality(pageCount: number) {
-  if (pageCount > 35) return 0.34;
-  if (pageCount > 12) return 0.38;
-  return 0.42;
+  for (let index = 0; index < data.length; index += 4) {
+    const gray = Math.round(
+      data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114
+    );
+    data[index] = gray;
+    data[index + 1] = gray;
+    data[index + 2] = gray;
+  }
+
+  context.putImageData(imageData, 0, 0);
 }
