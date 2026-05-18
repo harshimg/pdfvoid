@@ -3,7 +3,7 @@
 import type React from "react";
 import { useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Download, Info, Loader2, Wand2 } from "lucide-react";
+import { Download, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { recordToolIntent } from "@/app/actions";
 import { AdSlot } from "@/components/ads/ad-slot";
@@ -142,6 +142,12 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
         return;
       }
 
+      if (tool.slug === "pdf-to-images") {
+        await convertPdfToImagesInBrowser(files[0].file, options.imageFormat, setProgress);
+        toast.success("PDF pages are ready.");
+        return;
+      }
+
       const formData = new FormData();
       files.forEach((item) => formData.append("files", item.file));
       formData.append("options", JSON.stringify(options));
@@ -177,7 +183,11 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
+      className={
+        tool.slug === "preview"
+          ? "mt-8 space-y-6"
+          : "mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]"
+      }
     >
       <div className="space-y-6">
         <FileUploader
@@ -186,54 +196,64 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
           accept={tool.accepts}
           multiple={tool.multiple}
         />
-        <Card>
-          <CardHeader>
-            <CardTitle>Options</CardTitle>
-            <CardDescription>Only the fields relevant to this tool are sent to the API.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ToolOptionsForm tool={tool} options={options} setOptions={setOptions} />
-          </CardContent>
-        </Card>
-        <AdSlot placement="in-content" />
+        {tool.slug !== "preview" ? (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Options</CardTitle>
+                <CardDescription>Only the fields relevant to this tool are sent to the API.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ToolOptionsForm tool={tool} options={options} setOptions={setOptions} />
+              </CardContent>
+            </Card>
+            <AdSlot placement="in-content" />
+          </>
+        ) : null}
       </div>
       <aside className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Preview</CardTitle>
-            <CardDescription>Preview uses your local browser object URL.</CardDescription>
+            <CardTitle>{tool.slug === "preview" ? "Read PDF" : "Preview"}</CardTitle>
+            <CardDescription>
+              {tool.slug === "preview"
+                ? "Open pages locally with thumbnails, zoom, and rotation."
+                : "Preview renders locally in your browser."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <PdfPreview file={files[0]?.file} />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Run tool</CardTitle>
-            <CardDescription>
-              Files are validated and processed through the app route.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {tool.status === "adapter" ? (
-              <div className="flex gap-2 rounded-lg border bg-muted/45 p-3 text-sm text-muted-foreground">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                Password-grade PDF encryption needs a qpdf-compatible adapter for
-                production. This route is kept adapter-ready and fails safely.
+        {tool.slug !== "preview" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Run tool</CardTitle>
+              <CardDescription>
+                Files are validated and processed through the app route.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {tool.status === "adapter" ? (
+                <div className="flex gap-2 rounded-lg border bg-muted/45 p-3 text-sm text-muted-foreground">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  Password-grade PDF encryption needs a qpdf-compatible adapter for
+                  production. This route is kept adapter-ready and fails safely.
+                </div>
+              ) : null}
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-            ) : null}
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <Button className="w-full gap-2" disabled={!canProcess || isProcessing || isPending} onClick={processFiles}>
-              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : tool.output === "preview" ? <Wand2 className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {tool.slug === "lock" ? "Coming soon" : tool.output === "preview" ? "Load preview" : "Process and download"}
-            </Button>
-          </CardContent>
-        </Card>
+              <Button className="w-full gap-2" disabled={!canProcess || isProcessing || isPending} onClick={processFiles}>
+                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {tool.slug === "lock" ? "Coming soon" : "Process and download"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
         <AdSlot placement="sidebar" />
       </aside>
       <AdSlot placement="mobile-sticky" />
@@ -671,4 +691,102 @@ function convertCanvasToGrayscale(
   }
 
   context.putImageData(imageData, 0, 0);
+}
+
+async function convertPdfToImagesInBrowser(
+  file: File,
+  format: "png" | "jpg",
+  setProgress: (progress: number) => void
+) {
+  if (file.type !== "application/pdf") {
+    throw new Error(`${file.name} is not a PDF file.`);
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const header = new TextDecoder().decode(bytes.slice(0, 8));
+  if (!header.startsWith("%PDF-")) {
+    throw new Error(`${file.name} does not look like a valid PDF.`);
+  }
+
+  const [pdfjs, { zipSync }] = await Promise.all([
+    import("pdfjs-dist"),
+    import("fflate")
+  ]);
+
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+
+  const loadingTask = pdfjs.getDocument({
+    data: bytes,
+    isEvalSupported: false,
+    useSystemFonts: true
+  } as Parameters<typeof pdfjs.getDocument>[0]);
+  const pdf = await loadingTask.promise;
+  const filesToZip: Record<string, Uint8Array> = {};
+  const extension = format === "jpg" ? "jpg" : "png";
+  const mime = format === "jpg" ? "image/jpeg" : "image/png";
+
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      canvas.style.width = `${Math.ceil(viewport.width)}px`;
+      canvas.style.height = `${Math.ceil(viewport.height)}px`;
+
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) {
+        throw new Error("Your browser could not create a canvas for image export.");
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, viewport.width, viewport.height);
+
+      await page.render({
+        canvas,
+        canvasContext: context,
+        viewport
+      }).promise;
+
+      const imageBytes = new Uint8Array(
+        await canvasToImageArrayBuffer(canvas, mime, format === "jpg" ? 0.92 : undefined)
+      );
+      filesToZip[`page-${String(pageNumber).padStart(3, "0")}.${extension}`] = imageBytes;
+
+      page.cleanup();
+      canvas.width = 0;
+      canvas.height = 0;
+      setProgress(20 + Math.round((pageNumber / pdf.numPages) * 70));
+    }
+  } finally {
+    await pdf.destroy();
+  }
+
+  const zipBytes = zipSync(filesToZip, { level: 6 });
+  downloadBlob(
+    new Blob([zipBytes as BlobPart], { type: "application/zip" }),
+    `pdf-pages-${extension}.zip`
+  );
+  setProgress(100);
+}
+
+function canvasToImageArrayBuffer(
+  canvas: HTMLCanvasElement,
+  mime: "image/png" | "image/jpeg",
+  quality?: number
+) {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error("Unable to encode page image."));
+          return;
+        }
+        resolve(await blob.arrayBuffer());
+      },
+      mime,
+      quality
+    );
+  });
 }
