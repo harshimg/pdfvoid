@@ -9,6 +9,7 @@ import {
   Files,
   ImagePlus,
   ListOrdered,
+  Link2,
   LockOpen,
   RotateCw,
   Scissors,
@@ -29,6 +30,7 @@ export type ToolSlug =
   | "delete-pages"
   | "rearrange-pages"
   | "watermark"
+  | "pdf-links"
   | "page-numbers"
   | "metadata"
   | "lock"
@@ -146,6 +148,16 @@ export const tools: Tool[] = [
     description: "Stamp text or image watermarks across selected PDF pages.",
     category: "edit",
     icon: Stamp,
+    accepts: "pdf",
+    multiple: false,
+    output: "pdf"
+  },
+  {
+    slug: "pdf-links",
+    name: "PDF Links",
+    description: "Add a clickable hyperlink area or remove existing PDF links.",
+    category: "edit",
+    icon: Link2,
     accepts: "pdf",
     multiple: false,
     output: "pdf"

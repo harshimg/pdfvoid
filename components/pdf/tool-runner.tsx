@@ -11,9 +11,11 @@ import {
   Info,
   Italic,
   Layers,
+  Link2,
   Loader2,
   Type,
-  Underline
+  Underline,
+  Unlink
 } from "lucide-react";
 import { toast } from "sonner";
 import { recordToolIntent } from "@/app/actions";
@@ -61,6 +63,15 @@ type ToolOptions = {
   watermarkToPage: string;
   watermarkLayer: "over" | "under";
   watermarkImageScale: string;
+  linkMode: "add" | "remove";
+  linkUrl: string;
+  linkPage: string;
+  linkPages: string;
+  linkX: string;
+  linkY: string;
+  linkWidth: string;
+  linkHeight: string;
+  linkBorder: boolean;
   title: string;
   author: string;
   subject: string;
@@ -93,6 +104,15 @@ const defaultOptions: ToolOptions = {
   watermarkToPage: "",
   watermarkLayer: "over",
   watermarkImageScale: "28",
+  linkMode: "add",
+  linkUrl: "",
+  linkPage: "1",
+  linkPages: "",
+  linkX: "10",
+  linkY: "20",
+  linkWidth: "35",
+  linkHeight: "8",
+  linkBorder: true,
   title: "",
   author: "",
   subject: "",
@@ -165,10 +185,20 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const canProcess = useMemo(() => {
     if (tool.slug === "lock") return false;
     if (tool.slug === "watermark" && options.watermarkMode === "image" && !watermarkImageFile) return false;
+    if (tool.slug === "pdf-links" && options.linkMode === "add" && !options.linkUrl.trim()) return false;
     if (tool.output === "preview") return files.length > 0;
     if (tool.multiple) return files.length >= 1;
     return files.length === 1;
-  }, [files.length, options.watermarkMode, tool.multiple, tool.output, tool.slug, watermarkImageFile]);
+  }, [
+    files.length,
+    options.linkMode,
+    options.linkUrl,
+    options.watermarkMode,
+    tool.multiple,
+    tool.output,
+    tool.slug,
+    watermarkImageFile
+  ]);
 
   async function processFiles() {
     if (!canProcess) {
@@ -389,6 +419,9 @@ function ToolOptionsForm({
           setImageFile={setWatermarkImageFile}
         />
       ) : null}
+      {tool.slug === "pdf-links" ? (
+        <PdfLinkOptions options={options} update={update} />
+      ) : null}
       {tool.slug === "metadata" ? (
         <>
           <Field label="Title">
@@ -426,10 +459,142 @@ function ToolOptionsForm({
   );
 }
 
-type WatermarkOptionUpdater = <Key extends keyof ToolOptions>(
+type ToolOptionUpdater = <Key extends keyof ToolOptions>(
   key: Key,
   value: ToolOptions[Key]
 ) => void;
+
+function PdfLinkOptions({
+  options,
+  update
+}: {
+  options: ToolOptions;
+  update: ToolOptionUpdater;
+}) {
+  return (
+    <div className="space-y-6 md:col-span-2">
+      <div className="grid overflow-hidden rounded-lg border md:grid-cols-2">
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-24 flex-col items-center justify-center gap-2 border-b bg-background p-4 text-sm transition-colors md:border-b-0 md:border-r",
+            options.linkMode === "add" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("linkMode", "add")}
+        >
+          {options.linkMode === "add" ? <ModeCheck /> : null}
+          <Link2 className="h-9 w-9" />
+          <span className="font-medium">Add hyperlink</span>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-24 flex-col items-center justify-center gap-2 bg-background p-4 text-sm transition-colors",
+            options.linkMode === "remove" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("linkMode", "remove")}
+        >
+          {options.linkMode === "remove" ? <ModeCheck /> : null}
+          <Unlink className="h-9 w-9" />
+          <span className="font-medium">Remove hyperlinks</span>
+        </button>
+      </div>
+
+      {options.linkMode === "add" ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px]">
+            <Field label="Hyperlink URL">
+              <Input
+                value={options.linkUrl}
+                onChange={(event) => update("linkUrl", event.target.value)}
+                placeholder="https://example.com"
+              />
+            </Field>
+            <Field label="Page">
+              <Input
+                min="1"
+                type="number"
+                value={options.linkPage}
+                onChange={(event) => update("linkPage", event.target.value)}
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <PercentSlider
+              label="Left"
+              value={options.linkX}
+              onChange={(value) => update("linkX", value)}
+            />
+            <PercentSlider
+              label="Top"
+              value={options.linkY}
+              onChange={(value) => update("linkY", value)}
+            />
+            <PercentSlider
+              label="Width"
+              min="1"
+              value={options.linkWidth}
+              onChange={(value) => update("linkWidth", value)}
+            />
+            <PercentSlider
+              label="Height"
+              min="1"
+              value={options.linkHeight}
+              onChange={(value) => update("linkHeight", value)}
+            />
+          </div>
+
+          <label className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+            <input
+              className="h-5 w-5 accent-primary"
+              type="checkbox"
+              checked={options.linkBorder}
+              onChange={(event) => update("linkBorder", event.target.checked)}
+            />
+            Show a thin border around the clickable area
+          </label>
+        </>
+      ) : (
+        <Field label="Pages" hint="Example: 1,2,5-7. Leave blank to remove links from every page.">
+          <Input
+            value={options.linkPages}
+            onChange={(event) => update("linkPages", event.target.value)}
+            placeholder="All pages"
+          />
+        </Field>
+      )}
+    </div>
+  );
+}
+
+function PercentSlider({
+  label,
+  value,
+  min = "0",
+  onChange
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
+        <input
+          className="w-full accent-primary"
+          min={min}
+          max="100"
+          type="range"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <span className="w-10 text-right text-sm tabular-nums">{value}%</span>
+      </div>
+    </Field>
+  );
+}
 
 const watermarkPositionOptions: Array<{
   value: ToolOptions["watermarkPosition"];
@@ -453,7 +618,7 @@ function WatermarkOptions({
   setImageFile
 }: {
   options: ToolOptions;
-  update: WatermarkOptionUpdater;
+  update: ToolOptionUpdater;
   imageFile: File | null;
   setImageFile: (file: File | null) => void;
 }) {

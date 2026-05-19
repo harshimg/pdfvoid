@@ -129,6 +129,15 @@ export const seoPages: SeoPage[] = [
     keywords: ["add watermark to pdf", "watermark pdf", "pdf watermark"]
   },
   {
+    slug: "add-hyperlink-to-pdf",
+    toolSlug: "pdf-links",
+    title: "Add or Remove Hyperlinks in PDF Online Free",
+    description: "Add clickable hyperlinks to PDF pages or remove existing PDF link annotations online for free.",
+    h1: "Add hyperlinks to PDF",
+    intro: "Create clickable link areas on PDF pages or remove existing hyperlink annotations from selected pages.",
+    keywords: ["add hyperlink to pdf", "remove hyperlink from pdf", "pdf links", "pdf hyperlink editor"]
+  },
+  {
     slug: "add-page-numbers-to-pdf",
     toolSlug: "page-numbers",
     title: "Add Page Numbers to PDF Online Free",

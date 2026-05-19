@@ -1,4 +1,15 @@
-import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  degrees,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFString,
+  rgb,
+  StandardFonts,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage
+} from "pdf-lib";
 import { zipSync } from "fflate";
 import type { ToolSlug } from "@/lib/tools";
 import type { UploadedInput } from "@/lib/security/upload-guards";
@@ -37,6 +48,8 @@ export async function processPdfTool(
       return pdfResult(await rearrangePages(files[0].bytes, options), "rearranged.pdf");
     case "watermark":
       return pdfResult(await addWatermark(files[0].bytes, options), "watermarked.pdf");
+    case "pdf-links":
+      return pdfResult(await editPdfLinks(files[0].bytes, options), "pdf-links.pdf");
     case "page-numbers":
       return pdfResult(await addPageNumbers(files[0].bytes), "page-numbers.pdf");
     case "metadata":
@@ -141,6 +154,102 @@ async function rearrangePages(bytes: Uint8Array, options: PdfToolOptions) {
   const pages = await output.copyPages(input, order);
   pages.forEach((page) => output.addPage(page));
   return output.save({ useObjectStreams: true });
+}
+
+async function editPdfLinks(bytes: Uint8Array, options: PdfToolOptions) {
+  const input = await PDFDocument.load(bytes);
+
+  if (options.linkMode === "remove") {
+    const removed = removePdfLinks(input, options);
+    if (removed === 0) {
+      throw new Error("No hyperlink annotations were found on the selected pages.");
+    }
+    return input.save({ useObjectStreams: true });
+  }
+
+  addPdfLink(input, options);
+  return input.save({ useObjectStreams: true });
+}
+
+function addPdfLink(input: PDFDocument, options: PdfToolOptions) {
+  const pages = input.getPages();
+  const pageNumber = Math.trunc(clampNumber(Number(options.linkPage || 1), 1, pages.length, 1));
+  const page = pages[pageNumber - 1];
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+  const url = normalizeLinkUrl(options.linkUrl);
+
+  const rectWidth = Math.max(8, pageWidth * (clampNumber(Number(options.linkWidth || 35), 1, 100, 35) / 100));
+  const rectHeight = Math.max(8, pageHeight * (clampNumber(Number(options.linkHeight || 8), 1, 100, 8) / 100));
+  const x = clampNumber(
+    pageWidth * (clampNumber(Number(options.linkX || 10), 0, 100, 10) / 100),
+    0,
+    pageWidth - rectWidth,
+    0
+  );
+  const topY = pageHeight * (clampNumber(Number(options.linkY || 20), 0, 100, 20) / 100);
+  const y = clampNumber(pageHeight - topY - rectHeight, 0, pageHeight - rectHeight, 0);
+  const borderWidth = options.linkBorder === false ? 0 : 1;
+  const context = input.context;
+
+  const annotation = context.obj({
+    Type: "Annot",
+    Subtype: "Link",
+    Rect: [x, y, x + rectWidth, y + rectHeight],
+    Border: [0, 0, borderWidth],
+    C: [0, 0.45, 0.85],
+    H: "I",
+    A: {
+      Type: "Action",
+      S: "URI",
+      URI: PDFString.of(url)
+    }
+  });
+
+  page.node.addAnnot(context.register(annotation));
+}
+
+function removePdfLinks(input: PDFDocument, options: PdfToolOptions) {
+  const pageIndexes = parsePageSelection(options.linkPages, input.getPageCount());
+  let removed = 0;
+
+  for (const pageIndex of pageIndexes) {
+    const page = input.getPages()[pageIndex];
+    const annots = page.node.Annots();
+    if (!annots) continue;
+
+    for (let index = annots.size() - 1; index >= 0; index -= 1) {
+      const annotation = input.context.lookupMaybe(annots.get(index), PDFDict);
+      const subtype = annotation?.lookupMaybe(PDFName.of("Subtype"), PDFName);
+
+      if (subtype?.decodeText() === "Link") {
+        annots.remove(index);
+        removed += 1;
+      }
+    }
+
+    if (annots.size() === 0) {
+      page.node.delete(PDFName.Annots);
+    }
+  }
+
+  return removed;
+}
+
+function normalizeLinkUrl(value: string | undefined) {
+  const raw = sanitizeText(value ?? "", 2048).trim();
+  if (!raw) throw new Error("Enter a hyperlink URL.");
+
+  const urlWithProtocol = /^[a-z][a-z\d+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(urlWithProtocol);
+    if (!["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol)) {
+      throw new Error("Unsupported protocol.");
+    }
+    return parsed.toString();
+  } catch {
+    throw new Error("Enter a valid URL, email link, or phone link.");
+  }
 }
 
 async function addWatermark(bytes: Uint8Array, options: PdfToolOptions) {

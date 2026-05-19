@@ -36,6 +36,15 @@ export type PdfToolOptions = {
     type: "image/png" | "image/jpeg";
     bytes: Uint8Array;
   };
+  linkMode?: "add" | "remove";
+  linkUrl?: string;
+  linkPage?: string;
+  linkPages?: string;
+  linkX?: string;
+  linkY?: string;
+  linkWidth?: string;
+  linkHeight?: string;
+  linkBorder?: boolean;
   title?: string;
   author?: string;
   subject?: string;
