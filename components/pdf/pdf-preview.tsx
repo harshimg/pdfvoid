@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -34,14 +35,43 @@ type PdfDocument = {
   destroy: () => Promise<void>;
 };
 
-export function PdfPreview({ file }: { file?: File }) {
+export type PdfAreaSelection = {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type DraftSelection = {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+};
+
+export function PdfPreview({
+  file,
+  areaSelection,
+  areaSelectionAppliesToAll = false,
+  selectionMode = false,
+  onAreaSelectionChange
+}: {
+  file?: File;
+  areaSelection?: PdfAreaSelection | null;
+  areaSelectionAppliesToAll?: boolean;
+  selectionMode?: boolean;
+  onAreaSelectionChange?: (selection: PdfAreaSelection) => void;
+}) {
   const [pdf, setPdf] = useState<PdfDocument>();
   const [pageNumber, setPageNumber] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const selectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +174,65 @@ export function PdfPreview({ file }: { file?: File }) {
     [pdf?.numPages]
   );
 
+  const visibleSelection = useMemo(() => {
+    if (draftSelection) {
+      return normalizeDraftSelection(draftSelection);
+    }
+
+    if (areaSelection && (areaSelectionAppliesToAll || areaSelection.page === pageNumber)) {
+      return areaSelection;
+    }
+
+    return undefined;
+  }, [areaSelection, areaSelectionAppliesToAll, draftSelection, pageNumber]);
+
+  function getPointerPercent(event: React.PointerEvent<HTMLDivElement>) {
+    const element = selectionRef.current;
+    if (!element) return undefined;
+
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return undefined;
+
+    return {
+      x: clampPercent(((event.clientX - rect.left) / rect.width) * 100),
+      y: clampPercent(((event.clientY - rect.top) / rect.height) * 100)
+    };
+  }
+
+  function startAreaSelection(event: React.PointerEvent<HTMLDivElement>) {
+    if (!selectionMode || !onAreaSelectionChange) return;
+    const point = getPointerPercent(event);
+    if (!point) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraftSelection({
+      startX: point.x,
+      startY: point.y,
+      currentX: point.x,
+      currentY: point.y
+    });
+  }
+
+  function updateAreaSelection(event: React.PointerEvent<HTMLDivElement>) {
+    if (!draftSelection) return;
+    const point = getPointerPercent(event);
+    if (!point) return;
+    setDraftSelection({ ...draftSelection, currentX: point.x, currentY: point.y });
+  }
+
+  function finishAreaSelection() {
+    if (!draftSelection || !onAreaSelectionChange) {
+      setDraftSelection(null);
+      return;
+    }
+
+    const selection = normalizeDraftSelection(draftSelection);
+    setDraftSelection(null);
+
+    if (selection.width < 1 || selection.height < 1) return;
+    onAreaSelectionChange({ ...selection, page: pageNumber });
+  }
+
   if (!file) {
     return (
       <div className="flex min-h-80 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/35 p-6 text-center">
@@ -222,6 +311,7 @@ export function PdfPreview({ file }: { file?: File }) {
           <Button
             variant="ghost"
             size="icon"
+            disabled={selectionMode}
             onClick={() => setRotation((value) => (value + 90) % 360)}
             aria-label="Rotate preview"
           >
@@ -247,16 +337,57 @@ export function PdfPreview({ file }: { file?: File }) {
 
         <div className="overflow-auto p-4">
           <div className="flex min-h-full items-start justify-center">
-            <canvas
-              ref={canvasRef}
-              className="max-w-none rounded-sm bg-white shadow-xl shadow-black/20"
-              aria-label={`PDF page ${pageNumber}`}
-            />
+            <div className="relative max-w-none shadow-xl shadow-black/20">
+              <canvas
+                ref={canvasRef}
+                className="max-w-none rounded-sm bg-white"
+                aria-label={`PDF page ${pageNumber}`}
+              />
+              <div
+                ref={selectionRef}
+                className={cn(
+                  "absolute inset-0 rounded-sm",
+                  selectionMode ? "cursor-crosshair touch-none" : "pointer-events-none"
+                )}
+                onPointerDown={startAreaSelection}
+                onPointerMove={updateAreaSelection}
+                onPointerUp={finishAreaSelection}
+                onPointerCancel={() => setDraftSelection(null)}
+              >
+                {visibleSelection ? <SelectionBox selection={visibleSelection} /> : null}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function SelectionBox({ selection }: { selection: PdfAreaSelection }) {
+  return (
+    <div
+      className="absolute border-2 border-primary bg-primary/20 shadow-[0_0_0_1px_rgb(255_255_255_/_0.75)]"
+      style={{
+        left: `${selection.x}%`,
+        top: `${selection.y}%`,
+        width: `${selection.width}%`,
+        height: `${selection.height}%`
+      }}
+    />
+  );
+}
+
+function normalizeDraftSelection(selection: DraftSelection): PdfAreaSelection {
+  const x = Math.min(selection.startX, selection.currentX);
+  const y = Math.min(selection.startY, selection.currentY);
+  const width = Math.abs(selection.currentX - selection.startX);
+  const height = Math.abs(selection.currentY - selection.startY);
+  return { page: 1, x, y, width, height };
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, value));
 }
 
 function ThumbnailButton({

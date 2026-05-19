@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { recordToolIntent } from "@/app/actions";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { FileUploader, type QueuedFile } from "@/components/pdf/file-uploader";
-import { PdfPreview } from "@/components/pdf/pdf-preview";
+import { PdfPreview, type PdfAreaSelection } from "@/components/pdf/pdf-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,7 @@ type ToolOptions = {
   linkY: string;
   linkWidth: string;
   linkHeight: string;
+  linkApplyAll: boolean;
   linkBorder: boolean;
   title: string;
   author: string;
@@ -108,10 +109,11 @@ const defaultOptions: ToolOptions = {
   linkUrl: "",
   linkPage: "1",
   linkPages: "",
-  linkX: "10",
-  linkY: "20",
-  linkWidth: "35",
-  linkHeight: "8",
+  linkX: "",
+  linkY: "",
+  linkWidth: "",
+  linkHeight: "",
+  linkApplyAll: false,
   linkBorder: true,
   title: "",
   author: "",
@@ -181,11 +183,26 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [progress, setProgress] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [isProcessing, setIsProcessing] = useState(false);
+  const linkSelection = useMemo<PdfAreaSelection | null>(() => {
+    if (tool.slug !== "pdf-links" || options.linkMode !== "add") return null;
+
+    const x = Number(options.linkX);
+    const y = Number(options.linkY);
+    const width = Number(options.linkWidth);
+    const height = Number(options.linkHeight);
+    const page = Number(options.linkPage);
+
+    if (![x, y, width, height, page].every(Number.isFinite) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    return { page, x, y, width, height };
+  }, [options.linkHeight, options.linkMode, options.linkPage, options.linkWidth, options.linkX, options.linkY, tool.slug]);
 
   const canProcess = useMemo(() => {
     if (tool.slug === "lock") return false;
     if (tool.slug === "watermark" && options.watermarkMode === "image" && !watermarkImageFile) return false;
-    if (tool.slug === "pdf-links" && options.linkMode === "add" && !options.linkUrl.trim()) return false;
+    if (tool.slug === "pdf-links" && options.linkMode === "add" && (!options.linkUrl.trim() || !linkSelection)) return false;
     if (tool.output === "preview") return files.length > 0;
     if (tool.multiple) return files.length >= 1;
     return files.length === 1;
@@ -194,11 +211,23 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
     options.linkMode,
     options.linkUrl,
     options.watermarkMode,
+    linkSelection,
     tool.multiple,
     tool.output,
     tool.slug,
     watermarkImageFile
   ]);
+
+  function updateLinkSelection(selection: PdfAreaSelection) {
+    setOptions({
+      ...options,
+      linkPage: String(selection.page),
+      linkX: selection.x.toFixed(2),
+      linkY: selection.y.toFixed(2),
+      linkWidth: selection.width.toFixed(2),
+      linkHeight: selection.height.toFixed(2)
+    });
+  }
 
   async function processFiles() {
     if (!canProcess) {
@@ -320,7 +349,13 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <PdfPreview file={files[0]?.file} />
+            <PdfPreview
+              file={files[0]?.file}
+              areaSelection={linkSelection}
+              areaSelectionAppliesToAll={options.linkApplyAll}
+              selectionMode={tool.slug === "pdf-links" && options.linkMode === "add"}
+              onAreaSelectionChange={updateLinkSelection}
+            />
           </CardContent>
         </Card>
         {tool.slug !== "preview" ? (
@@ -502,7 +537,7 @@ function PdfLinkOptions({
 
       {options.linkMode === "add" ? (
         <>
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
             <Field label="Hyperlink URL">
               <Input
                 value={options.linkUrl}
@@ -510,40 +545,47 @@ function PdfLinkOptions({
                 placeholder="https://example.com"
               />
             </Field>
-            <Field label="Page">
-              <Input
-                min="1"
-                type="number"
-                value={options.linkPage}
-                onChange={(event) => update("linkPage", event.target.value)}
-              />
+            <Field label="Selected page">
+              <Input value={options.linkPage} readOnly />
             </Field>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <PercentSlider
-              label="Left"
-              value={options.linkX}
-              onChange={(value) => update("linkX", value)}
-            />
-            <PercentSlider
-              label="Top"
-              value={options.linkY}
-              onChange={(value) => update("linkY", value)}
-            />
-            <PercentSlider
-              label="Width"
-              min="1"
-              value={options.linkWidth}
-              onChange={(value) => update("linkWidth", value)}
-            />
-            <PercentSlider
-              label="Height"
-              min="1"
-              value={options.linkHeight}
-              onChange={(value) => update("linkHeight", value)}
-            />
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Link area</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {options.linkWidth && options.linkHeight
+                    ? `${Number(options.linkWidth).toFixed(1)}% x ${Number(options.linkHeight).toFixed(1)}% on page ${options.linkPage}`
+                    : "Select an area on the PDF preview."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!options.linkWidth || !options.linkHeight}
+                onClick={() => {
+                  update("linkX", "");
+                  update("linkY", "");
+                  update("linkWidth", "");
+                  update("linkHeight", "");
+                }}
+              >
+                Clear
+              </Button>
+            </div>
           </div>
+
+          <label className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+            <input
+              className="h-5 w-5 accent-primary"
+              type="checkbox"
+              checked={options.linkApplyAll}
+              onChange={(event) => update("linkApplyAll", event.target.checked)}
+            />
+            Apply this link area to every page
+          </label>
 
           <label className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
             <input
@@ -565,34 +607,6 @@ function PdfLinkOptions({
         </Field>
       )}
     </div>
-  );
-}
-
-function PercentSlider({
-  label,
-  value,
-  min = "0",
-  onChange
-}: {
-  label: string;
-  value: string;
-  min?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field label={label}>
-      <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
-        <input
-          className="w-full accent-primary"
-          min={min}
-          max="100"
-          type="range"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <span className="w-10 text-right text-sm tabular-nums">{value}%</span>
-      </div>
-    </Field>
   );
 }
 

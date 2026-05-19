@@ -173,39 +173,46 @@ async function editPdfLinks(bytes: Uint8Array, options: PdfToolOptions) {
 
 function addPdfLink(input: PDFDocument, options: PdfToolOptions) {
   const pages = input.getPages();
-  const pageNumber = Math.trunc(clampNumber(Number(options.linkPage || 1), 1, pages.length, 1));
-  const page = pages[pageNumber - 1];
-  const { width: pageWidth, height: pageHeight } = page.getSize();
   const url = normalizeLinkUrl(options.linkUrl);
+  const linkX = readRequiredPercent(options.linkX, "Select a link area on the PDF preview.");
+  const linkY = readRequiredPercent(options.linkY, "Select a link area on the PDF preview.");
+  const linkWidth = readRequiredPercent(options.linkWidth, "Select a link area on the PDF preview.");
+  const linkHeight = readRequiredPercent(options.linkHeight, "Select a link area on the PDF preview.");
+  const targetIndexes = options.linkApplyAll
+    ? input.getPageIndices()
+    : [Math.trunc(clampNumber(Number(options.linkPage || 1), 1, pages.length, 1)) - 1];
 
-  const rectWidth = Math.max(8, pageWidth * (clampNumber(Number(options.linkWidth || 35), 1, 100, 35) / 100));
-  const rectHeight = Math.max(8, pageHeight * (clampNumber(Number(options.linkHeight || 8), 1, 100, 8) / 100));
-  const x = clampNumber(
-    pageWidth * (clampNumber(Number(options.linkX || 10), 0, 100, 10) / 100),
-    0,
-    pageWidth - rectWidth,
-    0
-  );
-  const topY = pageHeight * (clampNumber(Number(options.linkY || 20), 0, 100, 20) / 100);
-  const y = clampNumber(pageHeight - topY - rectHeight, 0, pageHeight - rectHeight, 0);
-  const borderWidth = options.linkBorder === false ? 0 : 1;
-  const context = input.context;
+  if (linkWidth < 1 || linkHeight < 1) {
+    throw new Error("Select a larger link area on the PDF preview.");
+  }
 
-  const annotation = context.obj({
-    Type: "Annot",
-    Subtype: "Link",
-    Rect: [x, y, x + rectWidth, y + rectHeight],
-    Border: [0, 0, borderWidth],
-    C: [0, 0.45, 0.85],
-    H: "I",
-    A: {
-      Type: "Action",
-      S: "URI",
-      URI: PDFString.of(url)
-    }
-  });
+  for (const pageIndex of targetIndexes) {
+    const page = pages[pageIndex];
+    const { width: pageWidth, height: pageHeight } = page.getSize();
+    const rectWidth = Math.max(8, pageWidth * (clampNumber(linkWidth, 1, 100, 1) / 100));
+    const rectHeight = Math.max(8, pageHeight * (clampNumber(linkHeight, 1, 100, 1) / 100));
+    const x = clampNumber(pageWidth * (clampNumber(linkX, 0, 100, 0) / 100), 0, pageWidth - rectWidth, 0);
+    const topY = pageHeight * (clampNumber(linkY, 0, 100, 0) / 100);
+    const y = clampNumber(pageHeight - topY - rectHeight, 0, pageHeight - rectHeight, 0);
+    const borderWidth = options.linkBorder === false ? 0 : 1;
+    const context = input.context;
 
-  page.node.addAnnot(context.register(annotation));
+    const annotation = context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [x, y, x + rectWidth, y + rectHeight],
+      Border: [0, 0, borderWidth],
+      C: [0, 0.45, 0.85],
+      H: "I",
+      A: {
+        Type: "Action",
+        S: "URI",
+        URI: PDFString.of(url)
+      }
+    });
+
+    page.node.addAnnot(context.register(annotation));
+  }
 }
 
 function removePdfLinks(input: PDFDocument, options: PdfToolOptions) {
@@ -250,6 +257,12 @@ function normalizeLinkUrl(value: string | undefined) {
   } catch {
     throw new Error("Enter a valid URL, email link, or phone link.");
   }
+}
+
+function readRequiredPercent(value: string | undefined, message: string) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error(message);
+  return number;
 }
 
 async function addWatermark(bytes: Uint8Array, options: PdfToolOptions) {
