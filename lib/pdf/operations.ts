@@ -174,10 +174,10 @@ async function editPdfLinks(bytes: Uint8Array, options: PdfToolOptions) {
 function addPdfLink(input: PDFDocument, options: PdfToolOptions) {
   const pages = input.getPages();
   const url = normalizeLinkUrl(options.linkUrl);
-  const linkX = readRequiredPercent(options.linkX, "Select a link area on the PDF preview.");
-  const linkY = readRequiredPercent(options.linkY, "Select a link area on the PDF preview.");
-  const linkWidth = readRequiredPercent(options.linkWidth, "Select a link area on the PDF preview.");
-  const linkHeight = readRequiredPercent(options.linkHeight, "Select a link area on the PDF preview.");
+  const linkX = options.linkFullPage ? 0 : readRequiredPercent(options.linkX, "Select a link area on the PDF preview.");
+  const linkY = options.linkFullPage ? 0 : readRequiredPercent(options.linkY, "Select a link area on the PDF preview.");
+  const linkWidth = options.linkFullPage ? 100 : readRequiredPercent(options.linkWidth, "Select a link area on the PDF preview.");
+  const linkHeight = options.linkFullPage ? 100 : readRequiredPercent(options.linkHeight, "Select a link area on the PDF preview.");
   const targetIndexes = options.linkApplyAll
     ? input.getPageIndices()
     : [Math.trunc(clampNumber(Number(options.linkPage || 1), 1, pages.length, 1)) - 1];

@@ -72,6 +72,7 @@ type ToolOptions = {
   linkWidth: string;
   linkHeight: string;
   linkApplyAll: boolean;
+  linkFullPage: boolean;
   linkBorder: boolean;
   title: string;
   author: string;
@@ -114,6 +115,7 @@ const defaultOptions: ToolOptions = {
   linkWidth: "",
   linkHeight: "",
   linkApplyAll: false,
+  linkFullPage: false,
   linkBorder: true,
   title: "",
   author: "",
@@ -186,6 +188,16 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const linkSelection = useMemo<PdfAreaSelection | null>(() => {
     if (tool.slug !== "pdf-links" || options.linkMode !== "add") return null;
 
+    if (options.linkFullPage) {
+      return {
+        page: Number(options.linkPage) || 1,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100
+      };
+    }
+
     const x = Number(options.linkX);
     const y = Number(options.linkY);
     const width = Number(options.linkWidth);
@@ -197,7 +209,16 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
     }
 
     return { page, x, y, width, height };
-  }, [options.linkHeight, options.linkMode, options.linkPage, options.linkWidth, options.linkX, options.linkY, tool.slug]);
+  }, [
+    options.linkFullPage,
+    options.linkHeight,
+    options.linkMode,
+    options.linkPage,
+    options.linkWidth,
+    options.linkX,
+    options.linkY,
+    tool.slug
+  ]);
 
   const canProcess = useMemo(() => {
     if (tool.slug === "lock") return false;
@@ -219,14 +240,15 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   ]);
 
   function updateLinkSelection(selection: PdfAreaSelection) {
-    setOptions({
-      ...options,
+    setOptions((current) => ({
+      ...current,
       linkPage: String(selection.page),
       linkX: selection.x.toFixed(2),
       linkY: selection.y.toFixed(2),
       linkWidth: selection.width.toFixed(2),
-      linkHeight: selection.height.toFixed(2)
-    });
+      linkHeight: selection.height.toFixed(2),
+      linkFullPage: false
+    }));
   }
 
   async function processFiles() {
@@ -353,7 +375,7 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
               file={files[0]?.file}
               areaSelection={linkSelection}
               areaSelectionAppliesToAll={options.linkApplyAll}
-              selectionMode={tool.slug === "pdf-links" && options.linkMode === "add"}
+              selectionMode={tool.slug === "pdf-links" && options.linkMode === "add" && !options.linkFullPage}
               onAreaSelectionChange={updateLinkSelection}
             />
           </CardContent>
@@ -403,12 +425,12 @@ function ToolOptionsForm({
 }: {
   tool: ToolClientConfig;
   options: ToolOptions;
-  setOptions: (options: ToolOptions) => void;
+  setOptions: React.Dispatch<React.SetStateAction<ToolOptions>>;
   watermarkImageFile: File | null;
   setWatermarkImageFile: (file: File | null) => void;
 }) {
   const update = <Key extends keyof ToolOptions>(key: Key, value: ToolOptions[Key]) =>
-    setOptions({ ...options, [key]: value });
+    setOptions((current) => ({ ...current, [key]: value }));
 
   if (tool.slug === "compress") {
     return (
@@ -545,17 +567,53 @@ function PdfLinkOptions({
                 placeholder="https://example.com"
               />
             </Field>
-            <Field label="Selected page">
-              <Input value={options.linkPage} readOnly />
+            <Field label="Page">
+              <Input
+                min="1"
+                type="number"
+                value={options.linkPage}
+                onChange={(event) => update("linkPage", event.target.value)}
+              />
             </Field>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+            <input
+              className="mt-0.5 h-5 w-5 accent-primary"
+              type="checkbox"
+              checked={options.linkFullPage}
+              onChange={(event) => {
+                update("linkFullPage", event.target.checked);
+
+                if (event.target.checked) {
+                  update("linkX", "0");
+                  update("linkY", "0");
+                  update("linkWidth", "100");
+                  update("linkHeight", "100");
+                } else {
+                  update("linkX", "");
+                  update("linkY", "");
+                  update("linkWidth", "");
+                  update("linkHeight", "");
+                }
+              }}
+            />
+            <span>
+              <span className="block font-medium">Make the full page clickable</span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Use 100% of the PDF page as the hyperlink area.
+              </span>
+            </span>
+          </label>
 
           <div className="rounded-lg border bg-muted/30 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Link area</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {options.linkWidth && options.linkHeight
+                  {options.linkFullPage
+                    ? `Full page on page ${options.linkPage || 1}`
+                    : options.linkWidth && options.linkHeight
                     ? `${Number(options.linkWidth).toFixed(1)}% x ${Number(options.linkHeight).toFixed(1)}% on page ${options.linkPage}`
                     : "Select an area on the PDF preview."}
                 </p>
@@ -570,6 +628,7 @@ function PdfLinkOptions({
                   update("linkY", "");
                   update("linkWidth", "");
                   update("linkHeight", "");
+                  update("linkFullPage", false);
                 }}
               >
                 Clear

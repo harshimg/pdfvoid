@@ -45,6 +45,7 @@ export type PdfToolOptions = {
   linkWidth?: string;
   linkHeight?: string;
   linkApplyAll?: boolean;
+  linkFullPage?: boolean;
   linkBorder?: boolean;
   title?: string;
   author?: string;
