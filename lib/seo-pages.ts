@@ -93,6 +93,51 @@ export const seoPages: SeoPage[] = [
     keywords: ["image to pdf", "images to pdf", "photo to pdf", "jpg png to pdf"]
   },
   {
+    slug: "pdf-to-text",
+    toolSlug: "pdf-to-text",
+    title: "PDF to Text OCR Online Free",
+    description: "Convert scanned PDFs and PDF pages to text online for free with PDFVoid OCR. Extract text from PDF using English or Hindi OCR.",
+    h1: "PDF to text OCR",
+    intro: "Extract readable text from scanned PDFs and image-based PDF pages with browser OCR.",
+    keywords: ["pdf to text", "ocr pdf", "extract text from pdf", "pdf ocr", "scanned pdf to text"]
+  },
+  {
+    slug: "ocr-pdf",
+    toolSlug: "pdf-to-text",
+    title: "OCR PDF Online Free",
+    description: "Run OCR on scanned PDF files online for free. Use PDFVoid to recognize English and Hindi text from PDF pages.",
+    h1: "OCR PDF online",
+    intro: "Recognize text from scanned PDF pages and download the extracted text as a TXT file.",
+    keywords: ["ocr pdf", "pdf ocr online", "scan pdf ocr", "recognize text in pdf"]
+  },
+  {
+    slug: "scan-pdf-to-text",
+    toolSlug: "pdf-to-text",
+    title: "Scan PDF to Text Online Free",
+    description: "Convert scanned PDF documents to text online with free browser OCR for English and Hindi documents.",
+    h1: "Scan PDF to text",
+    intro: "Turn scanned documents, notes, forms, and image-based PDF pages into editable text.",
+    keywords: ["scan pdf to text", "scanned pdf to text", "convert scanned pdf to text", "ocr scanned pdf"]
+  },
+  {
+    slug: "image-to-text",
+    toolSlug: "pdf-to-text",
+    title: "Image to Text OCR Online Free",
+    description: "Extract text from JPG and PNG images online for free with PDFVoid browser OCR.",
+    h1: "Image to text OCR",
+    intro: "Upload an image and extract readable text with free OCR in your browser.",
+    keywords: ["image to text", "jpg to text", "png to text", "extract text from image", "ocr image"]
+  },
+  {
+    slug: "hindi-ocr",
+    toolSlug: "pdf-to-text",
+    title: "Hindi OCR Online Free",
+    description: "Extract Hindi text from scanned PDFs and images online for free with PDFVoid OCR.",
+    h1: "Hindi OCR online",
+    intro: "Recognize Hindi text from scanned documents, images, and PDF pages using browser OCR.",
+    keywords: ["hindi ocr", "hindi image to text", "hindi pdf to text", "extract hindi text from image"]
+  },
+  {
     slug: "rotate-pdf",
     toolSlug: "rotate",
     title: "Rotate PDF Online Free",

@@ -74,6 +74,7 @@ type ToolOptions = {
   linkApplyAll: boolean;
   linkFullPage: boolean;
   linkBorder: boolean;
+  ocrLanguage: "eng" | "hin" | "eng+hin";
   title: string;
   author: string;
   subject: string;
@@ -117,6 +118,7 @@ const defaultOptions: ToolOptions = {
   linkApplyAll: false,
   linkFullPage: false,
   linkBorder: true,
+  ocrLanguage: "eng",
   title: "",
   author: "",
   subject: "",
@@ -183,6 +185,7 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [options, setOptions] = useState(defaultOptions);
   const [watermarkImageFile, setWatermarkImageFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
+  const [ocrText, setOcrText] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isProcessing, setIsProcessing] = useState(false);
   const linkSelection = useMemo<PdfAreaSelection | null>(() => {
@@ -288,6 +291,17 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
         return;
       }
 
+      if (tool.slug === "pdf-to-text") {
+        const text = await extractTextWithOcrInBrowser(files[0].file, options.ocrLanguage, setProgress);
+        setOcrText(text);
+        downloadBlob(
+          new Blob([text], { type: "text/plain;charset=utf-8" }),
+          "pdfvoid-ocr-text.txt"
+        );
+        toast.success("OCR text is ready.");
+        return;
+      }
+
       const formData = new FormData();
       files.forEach((item) => formData.append("files", item.file));
       if (tool.slug === "watermark" && watermarkImageFile) {
@@ -356,6 +370,21 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
                 />
               </CardContent>
             </Card>
+            {tool.slug === "pdf-to-text" && ocrText ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Extracted text</CardTitle>
+                  <CardDescription>Review the OCR result before using it elsewhere.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    className="min-h-64 font-mono text-sm"
+                    readOnly
+                    value={ocrText}
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
             <AdSlot placement="in-content" />
           </>
         ) : null}
@@ -444,6 +473,31 @@ function ToolOptionsForm({
 
   if (tool.slug === "preview" || tool.slug === "merge") {
     return <p className="text-sm text-muted-foreground">No extra options needed.</p>;
+  }
+
+  if (tool.slug === "pdf-to-text") {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field
+          label="OCR language"
+          hint="English is fastest. Hindi and combined OCR need larger language data."
+        >
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+            value={options.ocrLanguage}
+            onChange={(event) => update("ocrLanguage", event.target.value as ToolOptions["ocrLanguage"])}
+          >
+            <option value="eng">English</option>
+            <option value="hin">Hindi</option>
+            <option value="eng+hin">English + Hindi</option>
+          </select>
+        </Field>
+        <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
+          OCR runs locally in your browser with Tesseract.js. The first run may
+          download language data, then the browser can cache it.
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1453,6 +1507,123 @@ async function convertPdfToImagesInBrowser(
     `pdf-pages-${extension}.zip`
   );
   setProgress(100);
+}
+
+async function extractTextWithOcrInBrowser(
+  file: File,
+  language: ToolOptions["ocrLanguage"],
+  setProgress: (progress: number) => void
+) {
+  if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
+    throw new Error(`${file.name} is not a supported PDF or image file.`);
+  }
+
+  const [{ createWorker, PSM }, pdfjs] = await Promise.all([
+    import("tesseract.js"),
+    file.type === "application/pdf" ? import("pdfjs-dist") : Promise.resolve(undefined)
+  ]);
+
+  let progressStart = 25;
+  let progressSpan = 60;
+  const worker = await createWorker(language, undefined, {
+    logger: (message) => {
+      if (message.status !== "recognizing text") return;
+      setProgress(progressStart + Math.round(message.progress * progressSpan));
+    }
+  });
+
+  await worker.setParameters({
+    tessedit_pageseg_mode: PSM.AUTO,
+    preserve_interword_spaces: "1",
+    user_defined_dpi: "220"
+  });
+
+  const output: string[] = [];
+
+  try {
+    if (file.type.startsWith("image/")) {
+      setProgress(25);
+      progressStart = 30;
+      progressSpan = 60;
+      const result = await worker.recognize(file);
+      output.push(result.data.text.trim());
+      return buildOcrTextOutput(file.name, output);
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const header = new TextDecoder().decode(bytes.slice(0, 8));
+    if (!header.startsWith("%PDF-")) {
+      throw new Error(`${file.name} does not look like a valid PDF.`);
+    }
+
+    if (!pdfjs) {
+      throw new Error("PDF renderer could not be loaded for OCR.");
+    }
+
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+    const loadingTask = pdfjs.getDocument({
+      data: bytes,
+      isEvalSupported: false,
+      useSystemFonts: true
+    } as Parameters<typeof pdfjs.getDocument>[0]);
+    const pdf = await loadingTask.promise;
+
+    try {
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const context = canvas.getContext("2d", { alpha: false });
+
+        if (!context) {
+          throw new Error("Your browser could not create a canvas for OCR.");
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({
+          canvas,
+          canvasContext: context,
+          viewport
+        }).promise;
+
+        progressStart = 20 + Math.round(((pageNumber - 1) / pdf.numPages) * 72);
+        progressSpan = Math.max(8, Math.round(72 / pdf.numPages));
+        const result = await worker.recognize(canvas);
+        const text = result.data.text.trim();
+        output.push(`--- Page ${pageNumber} ---\n${text || "[No text detected]"}`);
+
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+    } finally {
+      await pdf.destroy();
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  return buildOcrTextOutput(file.name, output);
+}
+
+function buildOcrTextOutput(filename: string, pages: string[]) {
+  const text = pages.join("\n\n").trim();
+
+  if (!text) {
+    throw new Error("No readable text was detected. Try a clearer scan or another OCR language.");
+  }
+
+  return [
+    `PDFVoid OCR result`,
+    `Source: ${filename}`,
+    `Generated: ${new Date().toISOString()}`,
+    "",
+    text
+  ].join("\n");
 }
 
 function canvasToImageArrayBuffer(

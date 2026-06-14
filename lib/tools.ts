@@ -6,6 +6,7 @@ import {
   FileLock2,
   FileOutput,
   FilePenLine,
+  FileText,
   Files,
   ImagePlus,
   ListOrdered,
@@ -26,6 +27,7 @@ export type ToolSlug =
   | "compress"
   | "pdf-to-images"
   | "images-to-pdf"
+  | "pdf-to-text"
   | "rotate"
   | "delete-pages"
   | "rearrange-pages"
@@ -46,7 +48,7 @@ export type Tool = {
   icon: React.ComponentType<{ className?: string }>;
   accepts: "pdf" | "image" | "both";
   multiple: boolean;
-  output: "pdf" | "zip" | "preview";
+  output: "pdf" | "zip" | "txt" | "preview";
   status?: "ready" | "adapter";
 };
 
@@ -111,6 +113,16 @@ export const tools: Tool[] = [
     accepts: "image",
     multiple: true,
     output: "pdf"
+  },
+  {
+    slug: "pdf-to-text",
+    name: "PDF / Image to Text OCR",
+    description: "Extract text from scanned PDFs and images with browser OCR.",
+    category: "convert",
+    icon: FileText,
+    accepts: "both",
+    multiple: false,
+    output: "txt"
   },
   {
     slug: "rotate",
