@@ -1,4 +1,4 @@
-import type { ToolSlug } from "@/lib/tools";
+import type { Tool, ToolSlug } from "@/lib/tools";
 
 export type SeoPage = {
   slug: string;
@@ -185,4 +185,80 @@ export function getPrimarySeoPage(toolSlug: ToolSlug) {
 
 export function getToolHref(toolSlug: ToolSlug) {
   return `/${getPrimarySeoPage(toolSlug)?.slug ?? `tools/${toolSlug}`}`;
+}
+
+export function getRelatedSeoPages(currentPage: SeoPage) {
+  const preferred = seoPages.filter((page) => page.slug !== currentPage.slug);
+  const sameTool = preferred.filter((page) => page.toolSlug === currentPage.toolSlug);
+  const commonTools = preferred.filter((page) =>
+    ["merge", "split", "compress", "pdf-to-images", "images-to-pdf", "delete-pages"].includes(page.toolSlug)
+  );
+
+  return [...sameTool, ...commonTools, ...preferred]
+    .filter((page, index, pages) => pages.findIndex((item) => item.slug === page.slug) === index)
+    .slice(0, 6);
+}
+
+export function getSeoHowToSteps(page: SeoPage, tool: Tool) {
+  return [
+    {
+      title: "Upload your file",
+      text: `Choose the PDF or image files you want to use with ${page.title}. The upload area accepts supported files and validates them before processing.`
+    },
+    {
+      title: "Set the options",
+      text: `Use the available controls for ${tool.name}, such as page ranges, image format, ordering, watermark settings, or link placement when that tool needs extra input.`
+    },
+    {
+      title: "Preview before processing",
+      text: "Check the local PDF preview when available. This helps you confirm pages, order, rotation, and selected areas before downloading the finished file."
+    },
+    {
+      title: "Download the result",
+      text: "Run the tool and save the processed PDF or ZIP file. PDFVoid keeps the workflow simple so the result is easy to find and reuse."
+    }
+  ];
+}
+
+export function getSeoFaqs(page: SeoPage, tool: Tool) {
+  const primaryKeyword = page.keywords[0] ?? tool.name.toLowerCase();
+
+  return [
+    {
+      q: `Is ${page.title} free to use?`,
+      a: `Yes. PDFVoid provides ${primaryKeyword} as a free online PDF workflow built with open-source libraries and no paid PDF API dependency.`
+    },
+    {
+      q: `Do I need to create an account for ${tool.name}?`,
+      a: "No account is required for the current tools. You can open the page, upload supported files, process them, and download the result."
+    },
+    {
+      q: "Are my files sent to an external PDF SaaS service?",
+      a: "No. PDFVoid is designed around browser processing and Next.js backend routes using open-source packages, not third-party PDF conversion APIs."
+    },
+    {
+      q: `What files work best with ${tool.name}?`,
+      a: `Use valid, non-corrupted files within the upload limit. ${tool.accepts === "image" ? "JPG and PNG files are supported for image workflows." : "PDF files are supported for this workflow."}`
+    },
+    {
+      q: `Can I use ${page.title} on mobile?`,
+      a: "Yes. The interface is responsive and works on modern mobile and desktop browsers, though large files are usually easier to manage on desktop."
+    }
+  ];
+}
+
+export function getSeoLongContent(page: SeoPage, tool: Tool) {
+  const primaryKeyword = page.keywords[0] ?? tool.name.toLowerCase();
+  const secondaryKeywords = page.keywords.slice(1).join(", ");
+
+  return {
+    heading: `About ${page.title}`,
+    paragraphs: [
+      `${page.title} is a focused PDFVoid tool for people who need a fast, browser-friendly way to handle everyday PDF work without installing desktop software. The page is built around the exact task users search for, such as ${primaryKeyword}${secondaryKeywords ? `, ${secondaryKeywords}` : ""}. Instead of sending you through a generic dashboard first, PDFVoid keeps the upload area, preview, settings, and download action on the same page so the workflow is easier to understand and faster to repeat.`,
+      `This ${tool.category} tool is part of a larger free PDF toolkit that includes merge, split, compress, PDF to JPG, JPG to PDF, PNG to PDF, rotate, delete pages, watermark, page numbers, metadata editing, and hyperlink tools. Each tool has its own clean URL, title, description, FAQ, and internal links so search engines and AI assistants can understand what the page does. That structure also helps real users land on the right tool from Google, Bing, Gemini, ChatGPT browsing, or direct recommendations.`,
+      `PDFVoid is designed as a free-first SaaS-style product, but the initial version avoids paid APIs and external PDF processing services. The codebase uses open-source libraries, typed Next.js routes, reusable components, upload validation, file size limits, clear error messages, and dark-mode friendly UI. For many tools, preview and processing happen locally in the browser; for others, the app uses its own Next.js backend routes. This keeps the project practical for free hosting while leaving space for future accounts, analytics, ads, usage limits, and premium plans.`,
+      `When you use ${page.title}, start with clean source files and keep file size reasonable for your browser and connection. If a PDF is scanned, image-heavy, encrypted, damaged, or extremely large, any online tool may need more memory or a different processing strategy. PDFVoid tries to keep the experience honest by showing validation errors instead of silently damaging documents. The goal is not just to create another PDF website, but to build a reliable PDF workspace that beginners can understand and advanced users can trust for common document tasks.`,
+      `For best results, bookmark this page and use the related tools below when your workflow needs more than one step. For example, you might merge PDF files, add page numbers, compress the final document, and then convert selected pages to JPG. Internal PDF workflows like that are exactly why PDFVoid uses separate tool pages connected by useful links rather than hiding everything behind one vague page. Over time, these focused pages help PDFVoid build topical authority around free PDF tools and give search engines clearer reasons to show the site for specific PDF searches.`
+    ]
+  };
 }

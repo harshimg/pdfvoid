@@ -22,6 +22,9 @@ export function Navbar() {
           <Link href="/tools" className="hover:text-foreground">
             Tools
           </Link>
+          <Link href="/about" className="hover:text-foreground">
+            About
+          </Link>
           <Link href="/#pricing" className="hover:text-foreground">
             Pricing
           </Link>

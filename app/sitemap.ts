@@ -6,6 +6,7 @@ import { tools } from "@/lib/tools";
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = siteConfig.url;
   const now = new Date();
+  const staticPages = ["/about", "/contact", "/privacy", "/llms.txt"];
 
   return [
     { url: baseUrl, lastModified: now, changeFrequency: "weekly", priority: 1 },
@@ -15,6 +16,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.9
     },
+    ...staticPages.map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: path === "/llms.txt" ? 0.3 : 0.65
+    })),
     ...tools.map((tool) => ({
       url: `${baseUrl}/tools/${tool.slug}`,
       lastModified: now,
