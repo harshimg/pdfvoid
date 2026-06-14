@@ -49,8 +49,8 @@ export function Footer() {
             <Link href="/privacy" className="hover:text-foreground">
               Privacy Policy
             </Link>
-            <Link href="/llms.txt" className="hover:text-foreground">
-              llms.txt
+            <Link href="/llms" className="hover:text-foreground">
+              AI Guide
             </Link>
           </div>
         </div>
