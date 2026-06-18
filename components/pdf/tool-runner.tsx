@@ -1439,7 +1439,7 @@ async function signPdfInBrowser(
     const text = options.signatureText.trim();
     if (!text) throw new Error("Type your signature first.");
     const font = await document.embedFont(StandardFonts.TimesRomanItalic);
-    const color = parseClientHexColor(options.signatureColor, rgb);
+    const color = parseClientHexColor(options.signatureColor, rgb) as ReturnType<typeof rgb>;
     const requestedSize = rectHeight * 0.72;
     const textWidth = font.widthOfTextAtSize(text, requestedSize);
     const fontSize = textWidth > rectWidth
