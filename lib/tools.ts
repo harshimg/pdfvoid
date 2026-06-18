@@ -14,6 +14,7 @@ import {
   LockOpen,
   RotateCw,
   Scissors,
+  Signature,
   Stamp,
   Trash2
 } from "lucide-react";
@@ -32,6 +33,7 @@ export type ToolSlug =
   | "delete-pages"
   | "rearrange-pages"
   | "watermark"
+  | "sign-pdf"
   | "pdf-links"
   | "page-numbers"
   | "metadata"
@@ -160,6 +162,16 @@ export const tools: Tool[] = [
     description: "Stamp text or image watermarks across selected PDF pages.",
     category: "edit",
     icon: Stamp,
+    accepts: "pdf",
+    multiple: false,
+    output: "pdf"
+  },
+  {
+    slug: "sign-pdf",
+    name: "Sign PDF",
+    description: "Draw or type a signature and place it on a PDF page.",
+    category: "edit",
+    icon: Signature,
     accepts: "pdf",
     multiple: false,
     output: "pdf"

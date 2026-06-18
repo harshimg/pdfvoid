@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import {
   Bold,
@@ -13,6 +13,7 @@ import {
   Layers,
   Link2,
   Loader2,
+  Signature as SignatureIcon,
   Type,
   Underline,
   Unlink
@@ -63,6 +64,14 @@ type ToolOptions = {
   watermarkToPage: string;
   watermarkLayer: "over" | "under";
   watermarkImageScale: string;
+  signatureMode: "draw" | "type";
+  signatureText: string;
+  signaturePage: string;
+  signatureX: string;
+  signatureY: string;
+  signatureWidth: string;
+  signatureHeight: string;
+  signatureColor: string;
   linkMode: "add" | "remove";
   linkUrl: string;
   linkPage: string;
@@ -107,6 +116,14 @@ const defaultOptions: ToolOptions = {
   watermarkToPage: "",
   watermarkLayer: "over",
   watermarkImageScale: "28",
+  signatureMode: "draw",
+  signatureText: "",
+  signaturePage: "1",
+  signatureX: "58",
+  signatureY: "78",
+  signatureWidth: "30",
+  signatureHeight: "9",
+  signatureColor: "#111827",
   linkMode: "add",
   linkUrl: "",
   linkPage: "1",
@@ -184,6 +201,7 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [options, setOptions] = useState(defaultOptions);
   const [watermarkImageFile, setWatermarkImageFile] = useState<File | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState("");
   const [progress, setProgress] = useState(0);
   const [ocrText, setOcrText] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -222,11 +240,37 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
     options.linkY,
     tool.slug
   ]);
+  const signatureSelection = useMemo<PdfAreaSelection | null>(() => {
+    if (tool.slug !== "sign-pdf") return null;
+
+    const x = Number(options.signatureX);
+    const y = Number(options.signatureY);
+    const width = Number(options.signatureWidth);
+    const height = Number(options.signatureHeight);
+    const page = Number(options.signaturePage);
+
+    if (![x, y, width, height, page].every(Number.isFinite) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    return { page, x, y, width, height };
+  }, [
+    options.signatureHeight,
+    options.signaturePage,
+    options.signatureWidth,
+    options.signatureX,
+    options.signatureY,
+    tool.slug
+  ]);
 
   const canProcess = useMemo(() => {
     if (tool.slug === "lock") return false;
     if (tool.slug === "watermark" && options.watermarkMode === "image" && !watermarkImageFile) return false;
     if (tool.slug === "pdf-links" && options.linkMode === "add" && (!options.linkUrl.trim() || !linkSelection)) return false;
+    if (tool.slug === "sign-pdf") {
+      const hasSignature = options.signatureMode === "type" ? options.signatureText.trim() : signatureDataUrl;
+      if (!hasSignature || !signatureSelection) return false;
+    }
     if (tool.output === "preview") return files.length > 0;
     if (tool.multiple) return files.length >= 1;
     return files.length === 1;
@@ -234,8 +278,12 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
     files.length,
     options.linkMode,
     options.linkUrl,
+    options.signatureMode,
+    options.signatureText,
     options.watermarkMode,
     linkSelection,
+    signatureDataUrl,
+    signatureSelection,
     tool.multiple,
     tool.output,
     tool.slug,
@@ -251,6 +299,17 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
       linkWidth: selection.width.toFixed(2),
       linkHeight: selection.height.toFixed(2),
       linkFullPage: false
+    }));
+  }
+
+  function updateSignatureSelection(selection: PdfAreaSelection) {
+    setOptions((current) => ({
+      ...current,
+      signaturePage: String(selection.page),
+      signatureX: selection.x.toFixed(2),
+      signatureY: selection.y.toFixed(2),
+      signatureWidth: selection.width.toFixed(2),
+      signatureHeight: selection.height.toFixed(2)
     }));
   }
 
@@ -299,6 +358,12 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
           "pdfvoid-ocr-text.txt"
         );
         toast.success("OCR text is ready.");
+        return;
+      }
+
+      if (tool.slug === "sign-pdf") {
+        await signPdfInBrowser(files[0].file, options, signatureDataUrl, setProgress);
+        toast.success("Signed PDF is ready.");
         return;
       }
 
@@ -367,6 +432,8 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
                   setOptions={setOptions}
                   watermarkImageFile={watermarkImageFile}
                   setWatermarkImageFile={setWatermarkImageFile}
+                  signatureDataUrl={signatureDataUrl}
+                  setSignatureDataUrl={setSignatureDataUrl}
                 />
               </CardContent>
             </Card>
@@ -402,10 +469,13 @@ export function ToolRunner({ tool }: { tool: ToolClientConfig }) {
           <CardContent>
             <PdfPreview
               file={files[0]?.file}
-              areaSelection={linkSelection}
-              areaSelectionAppliesToAll={options.linkApplyAll}
-              selectionMode={tool.slug === "pdf-links" && options.linkMode === "add" && !options.linkFullPage}
-              onAreaSelectionChange={updateLinkSelection}
+              areaSelection={tool.slug === "sign-pdf" ? signatureSelection : linkSelection}
+              areaSelectionAppliesToAll={tool.slug === "pdf-links" && options.linkApplyAll}
+              selectionMode={
+                tool.slug === "sign-pdf" ||
+                (tool.slug === "pdf-links" && options.linkMode === "add" && !options.linkFullPage)
+              }
+              onAreaSelectionChange={tool.slug === "sign-pdf" ? updateSignatureSelection : updateLinkSelection}
             />
           </CardContent>
         </Card>
@@ -450,13 +520,17 @@ function ToolOptionsForm({
   options,
   setOptions,
   watermarkImageFile,
-  setWatermarkImageFile
+  setWatermarkImageFile,
+  signatureDataUrl,
+  setSignatureDataUrl
 }: {
   tool: ToolClientConfig;
   options: ToolOptions;
   setOptions: React.Dispatch<React.SetStateAction<ToolOptions>>;
   watermarkImageFile: File | null;
   setWatermarkImageFile: (file: File | null) => void;
+  signatureDataUrl: string;
+  setSignatureDataUrl: (value: string) => void;
 }) {
   const update = <Key extends keyof ToolOptions>(key: Key, value: ToolOptions[Key]) =>
     setOptions((current) => ({ ...current, [key]: value }));
@@ -528,6 +602,14 @@ function ToolOptionsForm({
           update={update}
           imageFile={watermarkImageFile}
           setImageFile={setWatermarkImageFile}
+        />
+      ) : null}
+      {tool.slug === "sign-pdf" ? (
+        <SignatureOptions
+          options={options}
+          update={update}
+          signatureDataUrl={signatureDataUrl}
+          setSignatureDataUrl={setSignatureDataUrl}
         />
       ) : null}
       {tool.slug === "pdf-links" ? (
@@ -719,6 +801,180 @@ function PdfLinkOptions({
           />
         </Field>
       )}
+    </div>
+  );
+}
+
+function SignatureOptions({
+  options,
+  update,
+  signatureDataUrl,
+  setSignatureDataUrl
+}: {
+  options: ToolOptions;
+  update: ToolOptionUpdater;
+  signatureDataUrl: string;
+  setSignatureDataUrl: (value: string) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+
+  function getPoint(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height
+    };
+  }
+
+  function startDrawing(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    isDrawingRef.current = true;
+    const point = getPoint(event);
+    context.strokeStyle = options.signatureColor;
+    context.lineWidth = 4;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+  }
+
+  function draw(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!isDrawingRef.current) return;
+
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    const point = getPoint(event);
+    context.lineTo(point.x, point.y);
+    context.stroke();
+  }
+
+  function finishDrawing() {
+    const canvas = canvasRef.current;
+    if (!canvas || !isDrawingRef.current) return;
+
+    isDrawingRef.current = false;
+    setSignatureDataUrl(canvas.toDataURL("image/png"));
+  }
+
+  function clearSignature() {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureDataUrl("");
+  }
+
+  return (
+    <div className="space-y-6 md:col-span-2">
+      <div className="grid overflow-hidden rounded-lg border md:grid-cols-2">
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-24 flex-col items-center justify-center gap-2 border-b bg-background p-4 text-sm transition-colors md:border-b-0 md:border-r",
+            options.signatureMode === "draw" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("signatureMode", "draw")}
+        >
+          {options.signatureMode === "draw" ? <ModeCheck /> : null}
+          <SignatureIcon className="h-9 w-9" />
+          <span className="font-medium">Draw signature</span>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "relative flex min-h-24 flex-col items-center justify-center gap-2 bg-background p-4 text-sm transition-colors",
+            options.signatureMode === "type" ? "text-foreground" : "text-muted-foreground hover:bg-muted/60"
+          )}
+          onClick={() => update("signatureMode", "type")}
+        >
+          {options.signatureMode === "type" ? <ModeCheck /> : null}
+          <Type className="h-9 w-9" />
+          <span className="font-medium">Type signature</span>
+        </button>
+      </div>
+
+      {options.signatureMode === "draw" ? (
+        <Field label="Draw your signature" hint="Use mouse, touch, or stylus. Drag on the PDF preview to place the signature.">
+          <div className="rounded-lg border bg-white p-3">
+            <canvas
+              ref={canvasRef}
+              width={640}
+              height={220}
+              className="h-44 w-full touch-none rounded-md border border-dashed border-slate-300 bg-white"
+              onPointerDown={startDrawing}
+              onPointerMove={draw}
+              onPointerUp={finishDrawing}
+              onPointerCancel={finishDrawing}
+              aria-label="Draw signature"
+            />
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">
+                {signatureDataUrl ? "Signature captured." : "Draw inside the box."}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={clearSignature}>
+                Clear
+              </Button>
+            </div>
+          </div>
+        </Field>
+      ) : (
+        <Field label="Typed signature">
+          <Input
+            value={options.signatureText}
+            onChange={(event) => update("signatureText", event.target.value)}
+            placeholder="Your name"
+          />
+        </Field>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Page" hint="Drag on the PDF preview to choose placement.">
+          <Input
+            min="1"
+            type="number"
+            value={options.signaturePage}
+            onChange={(event) => update("signaturePage", event.target.value)}
+          />
+        </Field>
+        <Field label="Color">
+          <div className="flex h-10 items-center gap-3 rounded-md border bg-background px-3">
+            <input
+              className="h-6 w-8"
+              type="color"
+              value={options.signatureColor}
+              onChange={(event) => update("signatureColor", event.target.value)}
+              aria-label="Signature color"
+            />
+            <span className="text-sm text-muted-foreground">{options.signatureColor}</span>
+          </div>
+        </Field>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Field label="X">
+          <Input value={options.signatureX} onChange={(event) => update("signatureX", event.target.value)} />
+        </Field>
+        <Field label="Y">
+          <Input value={options.signatureY} onChange={(event) => update("signatureY", event.target.value)} />
+        </Field>
+        <Field label="Width">
+          <Input value={options.signatureWidth} onChange={(event) => update("signatureWidth", event.target.value)} />
+        </Field>
+        <Field label="Height">
+          <Input value={options.signatureHeight} onChange={(event) => update("signatureHeight", event.target.value)} />
+        </Field>
+      </div>
     </div>
   );
 }
@@ -1135,6 +1391,75 @@ async function mergePdfsInBrowser(
   downloadBlob(
     new Blob([mergedBytes as BlobPart], { type: "application/pdf" }),
     "merged.pdf"
+  );
+  setProgress(100);
+}
+
+async function signPdfInBrowser(
+  file: File,
+  options: ToolOptions,
+  signatureDataUrl: string,
+  setProgress: (progress: number) => void
+) {
+  if (file.type !== "application/pdf") {
+    throw new Error(`${file.name} is not a PDF file.`);
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const header = new TextDecoder().decode(bytes.slice(0, 8));
+  if (!header.startsWith("%PDF-")) {
+    throw new Error(`${file.name} does not look like a valid PDF.`);
+  }
+
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const document = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const pages = document.getPages();
+  const pageIndex = Math.trunc(clampClientNumber(Number(options.signaturePage || 1), 1, pages.length, 1)) - 1;
+  const page = pages[pageIndex];
+  const { width: pageWidth, height: pageHeight } = page.getSize();
+  const rectWidth = Math.max(24, pageWidth * (clampClientNumber(Number(options.signatureWidth), 2, 100, 30) / 100));
+  const rectHeight = Math.max(12, pageHeight * (clampClientNumber(Number(options.signatureHeight), 2, 100, 9) / 100));
+  const x = clampClientNumber(pageWidth * (clampClientNumber(Number(options.signatureX), 0, 100, 58) / 100), 0, pageWidth - rectWidth, 0);
+  const topY = pageHeight * (clampClientNumber(Number(options.signatureY), 0, 100, 78) / 100);
+  const y = clampClientNumber(pageHeight - topY - rectHeight, 0, pageHeight - rectHeight, 0);
+
+  setProgress(45);
+
+  if (options.signatureMode === "draw") {
+    if (!signatureDataUrl) throw new Error("Draw your signature first.");
+    const signatureBytes = new Uint8Array(await (await fetch(signatureDataUrl)).arrayBuffer());
+    const signatureImage = await document.embedPng(signatureBytes);
+    page.drawImage(signatureImage, {
+      x,
+      y,
+      width: rectWidth,
+      height: rectHeight
+    });
+  } else {
+    const text = options.signatureText.trim();
+    if (!text) throw new Error("Type your signature first.");
+    const font = await document.embedFont(StandardFonts.TimesRomanItalic);
+    const color = parseClientHexColor(options.signatureColor, rgb);
+    const requestedSize = rectHeight * 0.72;
+    const textWidth = font.widthOfTextAtSize(text, requestedSize);
+    const fontSize = textWidth > rectWidth
+      ? Math.max(8, requestedSize * (rectWidth / textWidth))
+      : requestedSize;
+
+    page.drawText(text, {
+      x,
+      y: y + (rectHeight - fontSize) / 2,
+      size: fontSize,
+      font,
+      color
+    });
+  }
+
+  setProgress(75);
+  const signedBytes = await document.save({ useObjectStreams: true });
+  downloadBlob(
+    new Blob([signedBytes as BlobPart], { type: "application/pdf" }),
+    "signed.pdf"
   );
   setProgress(100);
 }
@@ -1644,4 +1969,22 @@ function canvasToImageArrayBuffer(
       quality
     );
   });
+}
+
+function clampClientNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseClientHexColor(
+  value: string,
+  rgb: (red: number, green: number, blue: number) => unknown
+) {
+  const match = value.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return rgb(0.07, 0.09, 0.15);
+  return rgb(
+    parseInt(match[1], 16) / 255,
+    parseInt(match[2], 16) / 255,
+    parseInt(match[3], 16) / 255
+  );
 }

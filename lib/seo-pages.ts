@@ -174,6 +174,15 @@ export const seoPages: SeoPage[] = [
     keywords: ["add watermark to pdf", "watermark pdf", "pdf watermark"]
   },
   {
+    slug: "sign-pdf",
+    toolSlug: "sign-pdf",
+    title: "Sign PDF Online Free",
+    description: "Sign a PDF online for free with PDFVoid. Draw or type a signature, place it on a PDF page, and download the signed file.",
+    h1: "Sign PDF online",
+    intro: "Draw or type your signature, place it on the PDF preview, and download a signed copy.",
+    keywords: ["sign pdf", "sign pdf online", "add signature to pdf", "pdf signature", "esign pdf"]
+  },
+  {
     slug: "add-hyperlink-to-pdf",
     toolSlug: "pdf-links",
     title: "Add or Remove Hyperlinks in PDF Online Free",
