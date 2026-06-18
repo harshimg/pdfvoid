@@ -25,8 +25,8 @@ export function Navbar() {
           <Link href="/about" className="hover:text-foreground">
             About
           </Link>
-          <Link href="/#pricing" className="hover:text-foreground">
-            Pricing
+          <Link href="/#free-tools" className="hover:text-foreground">
+            Free tools
           </Link>
           <Link href="/#faq" className="hover:text-foreground">
             FAQ

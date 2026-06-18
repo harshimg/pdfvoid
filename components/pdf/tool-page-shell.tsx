@@ -203,8 +203,8 @@ export function ToolPageShell({ tool, seoPage, pathname }: ToolPageShellProps) {
                 <CardTitle className="text-lg">Why PDFVoid?</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
-                <p>PDFVoid is built around free, open-source PDF libraries and a modern Next.js architecture.</p>
-                <p>The project is designed for fast pages, clear tool URLs, privacy-minded processing, and future features such as accounts, usage limits, ads, and API access.</p>
+                <p>PDFVoid keeps common PDF tools simple, fast, and easy to use from any modern browser.</p>
+                <p>Each tool page includes clear controls, helpful instructions, related PDF workflows, and direct downloads.</p>
               </CardContent>
             </Card>
           </aside>

@@ -17,7 +17,7 @@ export const seoPages: SeoPage[] = [
     title: "Merge PDF Online Free",
     description: "Merge multiple PDF files online for free with PDFVoid. Combine PDFs in your browser and download one clean PDF file.",
     h1: "Merge PDF online",
-    intro: "Combine multiple PDF files into one document. Reorder files, preview your PDF, and download the merged result without paid APIs.",
+    intro: "Combine multiple PDF files into one document. Reorder files, preview your PDF, and download the merged result.",
     keywords: ["merge pdf", "combine pdf", "pdf merger", "merge pdf online", "combine pdf files"]
   },
   {
@@ -271,15 +271,15 @@ export function getSeoFaqs(page: SeoPage, tool: Tool) {
   return [
     {
       q: `Is ${page.title} free to use?`,
-      a: `Yes. PDFVoid provides ${primaryKeyword} as a free online PDF workflow built with open-source libraries and no paid PDF API dependency.`
+      a: `Yes. PDFVoid provides ${primaryKeyword} as a free online PDF workflow for everyday document tasks.`
     },
     {
       q: `Do I need to create an account for ${tool.name}?`,
       a: "No account is required for the current tools. You can open the page, upload supported files, process them, and download the result."
     },
     {
-      q: "Are my files sent to an external PDF SaaS service?",
-      a: "No. PDFVoid is designed around browser processing and Next.js backend routes using open-source packages, not third-party PDF conversion APIs."
+      q: "Do I need to install software?",
+      a: "No. PDFVoid runs in your browser, so you can use the tool online without installing a desktop PDF app."
     },
     {
       q: `What files work best with ${tool.name}?`,
@@ -299,11 +299,11 @@ export function getSeoLongContent(page: SeoPage, tool: Tool) {
   return {
     heading: `About ${page.title}`,
     paragraphs: [
-      `${page.title} is a focused PDFVoid tool for people who need a fast, browser-friendly way to handle everyday PDF work without installing desktop software. The page is built around the exact task users search for, such as ${primaryKeyword}${secondaryKeywords ? `, ${secondaryKeywords}` : ""}. Instead of sending you through a generic dashboard first, PDFVoid keeps the upload area, preview, settings, and download action on the same page so the workflow is easier to understand and faster to repeat.`,
-      `This ${tool.category} tool is part of a larger free PDF toolkit that includes merge, split, compress, PDF to JPG, JPG to PDF, PNG to PDF, rotate, delete pages, watermark, page numbers, metadata editing, and hyperlink tools. Each tool has its own clean URL, title, description, FAQ, and internal links so search engines and AI assistants can understand what the page does. That structure also helps real users land on the right tool from Google, Bing, Gemini, ChatGPT browsing, or direct recommendations.`,
-      `PDFVoid is designed as a free-first SaaS-style product, but the initial version avoids paid APIs and external PDF processing services. The codebase uses open-source libraries, typed Next.js routes, reusable components, upload validation, file size limits, clear error messages, and dark-mode friendly UI. For many tools, preview and processing happen locally in the browser; for others, the app uses its own Next.js backend routes. This keeps the project practical for free hosting while leaving space for future accounts, analytics, ads, usage limits, and premium plans.`,
-      `When you use ${page.title}, start with clean source files and keep file size reasonable for your browser and connection. If a PDF is scanned, image-heavy, encrypted, damaged, or extremely large, any online tool may need more memory or a different processing strategy. PDFVoid tries to keep the experience honest by showing validation errors instead of silently damaging documents. The goal is not just to create another PDF website, but to build a reliable PDF workspace that beginners can understand and advanced users can trust for common document tasks.`,
-      `For best results, bookmark this page and use the related tools below when your workflow needs more than one step. For example, you might merge PDF files, add page numbers, compress the final document, and then convert selected pages to JPG. Internal PDF workflows like that are exactly why PDFVoid uses separate tool pages connected by useful links rather than hiding everything behind one vague page. Over time, these focused pages help PDFVoid build topical authority around free PDF tools and give search engines clearer reasons to show the site for specific PDF searches.`
+      `${page.title} is a focused PDFVoid tool for people who need a fast, browser-friendly way to handle everyday PDF work without installing desktop software. The page is built around the exact task users search for, such as ${primaryKeyword}${secondaryKeywords ? `, ${secondaryKeywords}` : ""}. The upload area, preview, settings, and download action stay on the same page so the workflow is easy to understand and quick to repeat.`,
+      `This ${tool.category} tool is part of a larger free PDF toolkit that includes merge, split, compress, PDF to JPG, JPG to PDF, PNG to PDF, OCR, rotate, delete pages, watermark, page numbers, metadata editing, and hyperlink tools. Each tool has a focused page with clear instructions, FAQs, and related links so users can quickly find the right document workflow.`,
+      `PDFVoid is made for common PDF tasks at school, work, and home. The interface keeps controls predictable, uses clear validation messages, and avoids unnecessary steps between upload and download. Many tools include local previews so you can check pages, ordering, rotation, or selected areas before processing the final file.`,
+      `When you use ${page.title}, start with clean source files and keep file size reasonable for your browser and connection. If a PDF is scanned, image-heavy, encrypted, damaged, or extremely large, any online tool may need more memory or a different processing strategy. PDFVoid tries to show useful errors instead of silently producing a bad result.`,
+      `For best results, bookmark this page and use the related tools below when your workflow needs more than one step. For example, you might merge PDF files, add page numbers, compress the final document, and then convert selected pages to JPG. Focused PDF pages make it easier to move between tools without searching again.`
     ]
   };
 }

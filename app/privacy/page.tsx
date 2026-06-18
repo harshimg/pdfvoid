@@ -7,7 +7,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Privacy policy for PDFVoid, including information about file processing, analytics, advertising placeholders, and contact details.",
+    "Privacy policy for PDFVoid, including information about file processing, analytics, and contact details.",
   alternates: {
     canonical: "/privacy"
   },
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           <p className="mt-3">
             PDFVoid provides free online PDF tools for merging, splitting, converting,
             organizing, and editing PDF files. The app is designed to avoid paid PDF
-            APIs and external PDF SaaS processing services.
+            services that are unrelated to the selected PDF operation.
           </p>
         </section>
 
@@ -54,7 +54,8 @@ export default function PrivacyPage() {
           <h2 className="text-2xl font-semibold text-foreground">File uploads and processing</h2>
           <p className="mt-3">
             Some PDFVoid tools process files in your browser. Other tools may send
-            files to PDFVoid backend routes for processing with open-source libraries.
+            files to PDFVoid backend routes for processing. Uploaded files are used
+            to complete the selected PDF operation and return the output file.
             Uploaded files are used to complete the selected PDF operation and return
             the output file. The application is structured around temporary processing,
             upload validation, and file size limits.
@@ -64,19 +65,9 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-2xl font-semibold text-foreground">Analytics</h2>
           <p className="mt-3">
-            PDFVoid may use privacy-conscious analytics and Vercel Analytics to
-            understand page performance, traffic, and tool usage. Analytics help improve
+            PDFVoid may use privacy-conscious analytics to understand page
+            performance, traffic, and tool usage. Analytics help improve
             the website, fix broken flows, and prioritize new PDF tools.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-semibold text-foreground">Advertising and monetization</h2>
-          <p className="mt-3">
-            The codebase includes disabled advertising placeholders for future
-            monetization, such as banner, sidebar, in-content, and mobile sticky ad
-            placements. If advertising is enabled later, this policy should be updated
-            with the relevant ad network details.
           </p>
         </section>
 

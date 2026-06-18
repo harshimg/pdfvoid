@@ -9,8 +9,8 @@ export function Footer() {
         <div>
           <p className="font-semibold">PDFVoid</p>
           <p className="mt-2 max-w-md text-sm text-muted-foreground">
-            A free-first PDF toolkit built with open-source libraries and a clean
-            Next.js architecture ready for future accounts, limits, ads, and APIs.
+            Free online PDF tools for merging, converting, organizing, OCR,
+            watermarking, and editing everyday documents.
           </p>
         </div>
         <div>
@@ -29,8 +29,8 @@ export function Footer() {
             <Link href="/tools" className="hover:text-foreground">
               Dashboard
             </Link>
-            <Link href="/#pricing" className="hover:text-foreground">
-              Pricing
+            <Link href="/#free-tools" className="hover:text-foreground">
+              Free tools
             </Link>
             <Link href="/#faq" className="hover:text-foreground">
               FAQ

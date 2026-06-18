@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, Gauge, Lock, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Check, FileCheck2, Lock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,24 +11,24 @@ import { siteConfig } from "@/lib/site";
 import { tools } from "@/lib/tools";
 
 const highlights = [
-  "Open-source PDF processing",
-  "No paid APIs or external PDF SaaS",
-  "Vercel free-tier ready",
-  "Future-ready monetization hooks"
+  "Free online PDF tools",
+  "No signup required",
+  "Works on mobile and desktop",
+  "Private, browser-friendly workflows"
 ];
 
 const faqs = [
   {
-    q: "Is this free to develop and host?",
-    a: "Yes. The app uses open-source libraries and is structured for the Vercel free tier while the project is small."
+    q: "Is PDFVoid free to use?",
+    a: "Yes. PDFVoid provides free online PDF tools for common tasks like merging, splitting, converting, rotating, and watermarking PDFs."
   },
   {
-    q: "Do files go to paid PDF services?",
-    a: "No. Processing happens through local browser previews and Next.js API routes using open-source packages."
+    q: "Do I need to create an account?",
+    a: "No. You can open a tool, upload supported files, process them, and download the result without creating an account."
   },
   {
-    q: "Can I add accounts or subscriptions later?",
-    a: "Yes. Auth, database, limits, API access, analytics, and ad slots are represented as clean placeholders."
+    q: "Which PDF tools are available?",
+    a: "PDFVoid includes tools for merge PDF, split PDF, compress PDF, PDF to JPG, JPG to PDF, watermark, page numbers, metadata, links, OCR, and more."
   }
 ];
 
@@ -51,13 +51,13 @@ export default function HomePage() {
       <section className="surface-grid overflow-hidden border-b">
         <div className="container grid min-h-[calc(100vh-4rem)] items-center gap-10 py-16 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <Badge variant="secondary">Free-first SaaS PDF toolkit</Badge>
+            <Badge variant="secondary">Free online PDF tools</Badge>
             <h1 className="mt-5 max-w-3xl text-balance text-4xl font-semibold tracking-normal sm:text-5xl lg:text-6xl">
               PDFVoid
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
-              Merge, split, compress, convert, rotate, watermark, and organize PDFs
-              with a modern Next.js platform built for privacy, speed, and future scale.
+              Merge, split, compress, convert, rotate, watermark, edit, OCR, and
+              organize PDFs with simple tools that work directly in your browser.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
@@ -105,8 +105,8 @@ export default function HomePage() {
             <Badge variant="outline">Toolkit</Badge>
             <h2 className="mt-3 text-3xl font-semibold">Everything in one dashboard</h2>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              The tools share upload validation, queue ordering, previews, progress,
-              toasts, and API contracts, which keeps new features easy to add.
+              Search for a PDF tool, upload your files, preview pages when needed,
+              choose options, and download the finished document from one clean workspace.
             </p>
           </div>
           <Button asChild variant="outline">
@@ -123,9 +123,9 @@ export default function HomePage() {
       <section className="border-y bg-muted/35">
         <div className="container grid gap-4 py-14 md:grid-cols-3">
           {[
-            { icon: Zap, title: "Fast by design", text: "Lazy tool UI, thin API routes, streaming-ready responses, and scoped bundles." },
-            { icon: Lock, title: "Privacy-minded", text: "Strict upload validation, size limits, and no external PDF processing services." },
-            { icon: Gauge, title: "Scale later", text: "Placeholders for auth, analytics, database, ads, limits, premium, and API access." }
+            { icon: Zap, title: "Fast workflow", text: "Open a tool, upload files, set options, and download the result without unnecessary steps." },
+            { icon: Lock, title: "Privacy-minded", text: "PDFVoid is designed for local previews, strict upload validation, and simple file handling." },
+            { icon: FileCheck2, title: "Useful PDF tasks", text: "Handle common PDF jobs such as merging, splitting, converting, OCR, watermarking, and page editing." }
           ].map((item) => (
             <Card key={item.title}>
               <CardHeader>
@@ -138,42 +138,52 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="pricing" className="container py-16">
+      <section id="free-tools" className="container py-16">
         <div className="text-center">
-          <Badge variant="secondary">Pricing</Badge>
-          <h2 className="mt-3 text-3xl font-semibold">Free now, premium-ready later</h2>
+          <Badge variant="secondary">Free tools</Badge>
+          <h2 className="mt-3 text-3xl font-semibold">PDF tools without the clutter</h2>
           <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
-            The initial product stays free. The structure leaves room for optional subscriptions,
-            heavier limits, team features, and API access when the audience arrives.
+            PDFVoid focuses on quick document tasks, clear controls, mobile-friendly
+            layouts, and direct downloads.
           </p>
         </div>
-        <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Free</CardTitle>
-              <CardDescription>For launch and early growth.</CardDescription>
+              <CardTitle>Convert</CardTitle>
+              <CardDescription>Turn PDFs into images or images into PDFs.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">$0</p>
               <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                <li>Core PDF tools</li>
-                <li>Open-source processing</li>
-                <li>Responsive dashboard</li>
+                <li>PDF to JPG</li>
+                <li>PDF to PNG</li>
+                <li>JPG and PNG to PDF</li>
               </ul>
             </CardContent>
           </Card>
-          <Card className="border-primary/40">
+          <Card>
             <CardHeader>
-              <Sparkles className="h-6 w-6 text-accent" />
-              <CardTitle>Premium placeholder</CardTitle>
-              <CardDescription>Designed but disabled until needed.</CardDescription>
+              <CardTitle>Organize</CardTitle>
+              <CardDescription>Clean up page order and document structure.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">Later</p>
               <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                <li>Higher file limits</li>
-                <li>Batch jobs and API access</li>
-                <li>Account history and team tools</li>
+                <li>Merge PDF</li>
+                <li>Split PDF</li>
+                <li>Delete and rearrange pages</li>
+              </ul>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Edit</CardTitle>
+              <CardDescription>Add useful finishing touches to your PDF.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+                <li>Watermark</li>
+                <li>Page numbers</li>
+                <li>Hyperlinks and metadata</li>
               </ul>
             </CardContent>
           </Card>

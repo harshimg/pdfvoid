@@ -10,7 +10,7 @@ export function GET() {
 
   const body = `# PDFVoid
 
-PDFVoid is a free-first online PDF toolkit for common PDF workflows.
+PDFVoid is a free online PDF toolkit for common PDF workflows.
 
 Site: ${siteConfig.url}
 About: ${siteConfig.url}/about

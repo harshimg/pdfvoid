@@ -9,14 +9,14 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "About PDFVoid",
   description:
-    "Learn about PDFVoid, a free-first online PDF toolkit built with open-source libraries for merging, converting, organizing, and editing PDFs.",
+    "Learn about PDFVoid, a free online PDF toolkit for merging, converting, organizing, OCR, watermarking, and editing PDFs.",
   alternates: {
     canonical: "/about"
   },
   openGraph: {
     title: "About PDFVoid",
     description:
-      "PDFVoid is a free-first PDF toolkit focused on useful tools, clear SEO pages, privacy-minded processing, and modern web performance.",
+      "PDFVoid is a free PDF toolkit focused on useful tools, clear pages, privacy-minded processing, and everyday document tasks.",
     url: `${siteConfig.url}/about`
   }
 };
@@ -41,7 +41,7 @@ export default function AboutPage() {
       <Badge variant="secondary">About</Badge>
       <h1 className="mt-4 max-w-3xl text-4xl font-semibold">About PDFVoid</h1>
       <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">
-        PDFVoid is a free-first online PDF toolkit built for everyday document work:
+        PDFVoid is a free online PDF toolkit built for everyday document work:
         merge PDFs, split pages, convert PDF to images, convert JPG or PNG to PDF,
         rotate pages, delete pages, add watermarks, edit metadata, add hyperlinks,
         and preview documents in the browser.
@@ -50,16 +50,16 @@ export default function AboutPage() {
       <div className="mt-10 grid gap-4 md:grid-cols-3">
         {[
           {
-            title: "Free-first",
-            text: "The early product is designed to run without paid PDF APIs or external PDF SaaS services."
+            title: "Free to use",
+            text: "Open a PDF tool, upload supported files, process your document, and download the result without creating an account."
           },
           {
-            title: "Open-source stack",
-            text: "PDFVoid uses Next.js, TypeScript, Tailwind CSS, PDF.js, pdf-lib, and other open-source packages."
+            title: "Practical PDF tools",
+            text: "PDFVoid focuses on common tasks such as merge PDF, PDF to JPG, JPG to PDF, OCR, watermarking, page numbers, and metadata editing."
           },
           {
-            title: "Search-friendly",
-            text: "Every major PDF workflow has a focused landing page, FAQ content, schema, and related tool links."
+            title: "Simple experience",
+            text: "Each tool page keeps the upload area, options, preview, help text, and download action easy to find."
           }
         ].map((item) => (
           <Card key={item.title}>
@@ -76,17 +76,14 @@ export default function AboutPage() {
       <section className="mt-12 max-w-4xl space-y-5 text-sm leading-7 text-muted-foreground">
         <h2 className="text-2xl font-semibold text-foreground">Why PDFVoid exists</h2>
         <p>
-          Many PDF sites are useful, but they can also be heavy, confusing, covered
-          in ads, or dependent on paid APIs behind the scenes. PDFVoid is built as a
-          clean alternative: one memorable domain, focused tools, clear pages, and a
-          codebase that can grow into a full SaaS product over time.
+          Many PDF sites are useful, but they can also feel heavy, confusing, or
+          crowded. PDFVoid is built as a clean alternative: one memorable domain,
+          focused tools, clear pages, and simple document workflows.
         </p>
         <p>
-          The project is also structured so beginners can continue development. Tools
-          share reusable upload, preview, validation, processing, SEO, and UI patterns.
-          Future additions such as accounts, usage limits, subscriptions, analytics,
-          ads, database storage, and API access can be added without rewriting the
-          entire application.
+          The goal is to make everyday PDF work easier for students, teachers,
+          office users, freelancers, and anyone who needs quick document tools
+          without installing desktop software.
         </p>
       </section>
 
