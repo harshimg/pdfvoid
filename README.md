@@ -1,5 +1,5 @@
 # PDFVoid
-# Note:- This is just experimental PDFVoid repo, actual repo is private.
+# Note:- This is just an experimental PDFVoid repo, actual repo is private.
 
 
 A modern SaaS-style PDF toolkit built with Next.js 15, TypeScript, Tailwind CSS, shadcn-style components, Framer Motion, Zustand, and open-source PDF libraries.
